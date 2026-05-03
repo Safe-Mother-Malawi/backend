@@ -217,7 +217,8 @@ export class IvrController {
    *   phone?: string,
    *   district?: string,
    *   healthFacility?: string,
-   *   patientName?: string
+   *   patientName?: string,
+   *   patientType?: 'prenatal' | 'neonatal'
    * }
    */
   @Post('simulator/init')
@@ -229,6 +230,7 @@ export class IvrController {
     district?: string;
     healthFacility?: string;
     patientName?: string;
+    patientType?: 'prenatal' | 'neonatal';
   }) {
     if (!body.sessionId) {
       throw new BadRequestException('sessionId is required');
@@ -240,6 +242,7 @@ export class IvrController {
       body.district,
       body.healthFacility,
       body.patientName,
+      body.patientType,
     );
     return {
       sessionId: session.sessionId,

@@ -9,6 +9,7 @@ import { NotificationType } from '../notifications/entities/notification.entity'
 import { UserRole } from '../users/entities/user.entity';
 import { IvrLanguageService } from './services/ivr-language.service';
 import { IvrLanguage, IvrMessages } from './config/ivr-messages.i18n';
+import { EmergencyService } from './services/emergency.service';
 
 /**
  * IVR Simulator Service
@@ -33,6 +34,11 @@ interface SimulatorSession {
   district?: string;
   healthFacility?: string;
   patientName?: string;
+
+  // Emergency state tracking
+  emergencyService?: 'ambulance' | 'police' | 'hospital' | 'helpline';
+  policeEmergencyType?: 'violence' | 'crime' | 'other';
+  emergencyLocation?: { latitude: number; longitude: number; address: string };
 }
 
 interface SimulatorResponse {
@@ -57,6 +63,7 @@ export class IvrSimulatorService {
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     private readonly languageService: IvrLanguageService,
+    private readonly emergencyService: EmergencyService,
   ) {}
 
   /**
@@ -69,6 +76,7 @@ export class IvrSimulatorService {
     district?: string,
     healthFacility?: string,
     patientName?: string,
+    patientType?: 'prenatal' | 'neonatal', // NEW: Auto-detect patient type
   ): SimulatorSession {
     const lang = this.languageService.validateLanguage(language);
     const session: SimulatorSession = {
@@ -85,6 +93,9 @@ export class IvrSimulatorService {
       district,
       healthFacility,
       patientName,
+      
+      // Auto-detect patient type if provided
+      patientType: patientType || undefined,
     };
     this.sessions.set(sessionId, session);
     
@@ -99,7 +110,7 @@ export class IvrSimulatorService {
     });
     
     this.logger.log(
-      `Simulator session initialized: ${sessionId} (Language: ${lang}, Phone: ${callerPhone}, District: ${district})`,
+      `Simulator session initialized: ${sessionId} (Language: ${lang}, Phone: ${callerPhone}, District: ${district}, Type: ${patientType || 'auto-detect'})`,
     );
     return session;
   }
@@ -159,8 +170,23 @@ export class IvrSimulatorService {
       case 'health_tips':
         response = this.handleHealthTips(session, digit);
         break;
-      case 'emergency_contacts':
-        response = this.handleEmergencyContacts(session, digit);
+      case 'emergency_menu':
+        response = this.handleEmergencyMenu(session, digit);
+        break;
+      case 'ambulance_service':
+        response = await this.handleAmbulanceService(session, digit);
+        break;
+      case 'police_service':
+        response = this.handlePoliceService(session, digit);
+        break;
+      case 'police_emergency_type':
+        response = await this.handlePoliceEmergencyType(session, digit);
+        break;
+      case 'hospital_service':
+        response = await this.handleHospitalService(session, digit);
+        break;
+      case 'helpline_service':
+        response = await this.handleHelplineService(session, digit);
         break;
       default:
         response = {
@@ -214,12 +240,30 @@ export class IvrSimulatorService {
   private handleMainMenu(session: SimulatorSession, digit: string): SimulatorResponse {
     switch (digit) {
       case '1':
-        return {
-          message: this.languageService.getMessage('symptomChecker', session.language),
-          nextMenu: 'symptom_type',
-          action: 'SYMPTOM_TYPE',
-          shouldHangup: false,
-        };
+        // If patient type is already known, skip symptom selection and go directly to questions
+        if (session.patientType === 'prenatal') {
+          return {
+            message: this.languageService.getMessage('prenatalQ1', session.language),
+            nextMenu: 'prenatal_q1',
+            action: 'PRENATAL_Q1',
+            shouldHangup: false,
+          };
+        } else if (session.patientType === 'neonatal') {
+          return {
+            message: this.languageService.getMessage('neonatalQ1', session.language),
+            nextMenu: 'neonatal_q1',
+            action: 'NEONATAL_Q1',
+            shouldHangup: false,
+          };
+        } else {
+          // Show symptom type selection if not known
+          return {
+            message: this.languageService.getMessage('symptomChecker', session.language),
+            nextMenu: 'symptom_type',
+            action: 'SYMPTOM_TYPE',
+            shouldHangup: false,
+          };
+        }
       case '2':
         return {
           message: this.languageService.getMessage('appointmentCheck', session.language),
@@ -243,8 +287,8 @@ export class IvrSimulatorService {
         };
       case '0':
         return {
-          message: this.languageService.getMessage('emergency', session.language),
-          nextMenu: 'emergency_contacts',
+          message: 'Emergency Services. Press 1 for Ambulance (998). Press 2 for SafeMother Helpline (116). Press 3 for Police (997). Press 4 for Hospital. Press 0 to return to Main Menu.',
+          nextMenu: 'emergency_menu',
           action: 'EMERGENCY',
           shouldHangup: false,
         };
@@ -260,8 +304,30 @@ export class IvrSimulatorService {
 
   /**
    * Symptom type handler (prenatal vs neonatal)
+   * If patientType is already set from session init, skip this and go directly to questions
    */
   private handleSymptomType(session: SimulatorSession, digit: string): SimulatorResponse {
+    // If patient type was already set during initialization, skip this menu
+    if (session.patientType) {
+      // Auto-select based on patient type
+      if (session.patientType === 'prenatal') {
+        return {
+          message: this.languageService.getMessage('prenatalQ1', session.language),
+          nextMenu: 'prenatal_q1',
+          action: 'PRENATAL_Q1',
+          shouldHangup: false,
+        };
+      } else {
+        return {
+          message: this.languageService.getMessage('neonatalQ1', session.language),
+          nextMenu: 'neonatal_q1',
+          action: 'NEONATAL_Q1',
+          shouldHangup: false,
+        };
+      }
+    }
+
+    // Otherwise, show symptom type selection menu
     switch (digit) {
       case '1':
         session.patientType = 'prenatal';
@@ -579,7 +645,318 @@ export class IvrSimulatorService {
   }
 
   /**
-   * Emergency contacts handler
+   * Emergency menu handler - Route to 4 services
+   */
+  private handleEmergencyMenu(session: SimulatorSession, digit: string): SimulatorResponse {
+    switch (digit) {
+      case '1':
+        return {
+          message: 'Ambulance Service (998). Please confirm your location. Press 1 to confirm and dispatch ambulance, or 0 to return to emergency menu.',
+          nextMenu: 'ambulance_service',
+          action: 'AMBULANCE_SERVICE',
+          shouldHangup: false,
+        };
+      case '2':
+        return {
+          message: 'SafeMother Helpline (116). Connecting you to a health counselor. Press 1 to confirm connection, or 0 to return to emergency menu.',
+          nextMenu: 'helpline_service',
+          action: 'HELPLINE_SERVICE',
+          shouldHangup: false,
+        };
+      case '3':
+        return {
+          message: 'Police Emergency (997). Select emergency type: Press 1 for Violence/Assault, Press 2 for Theft/Crime, Press 3 for Other Emergency, or Press 0 to return.',
+          nextMenu: 'police_service',
+          action: 'POLICE_SERVICE',
+          shouldHangup: false,
+        };
+      case '4':
+        return {
+          message: 'Hospital Finder. Finding nearest hospital to your location. Press 1 to confirm and find hospital, or 0 to return to emergency menu.',
+          nextMenu: 'hospital_service',
+          action: 'HOSPITAL_SERVICE',
+          shouldHangup: false,
+        };
+      case '0':
+        return {
+          message: this.languageService.getMessage('mainMenu', session.language),
+          nextMenu: 'main_menu',
+          action: 'MAIN_MENU',
+          shouldHangup: false,
+        };
+      default:
+        return {
+          message: 'Emergency Services. Press 1 for Ambulance (998). Press 2 for SafeMother Helpline (116). Press 3 for Police (997). Press 4 for Hospital. Press 0 to return to Main Menu.',
+          nextMenu: 'emergency_menu',
+          action: 'EMERGENCY',
+          shouldHangup: false,
+        };
+    }
+  }
+
+  /**
+   * Ambulance service handler
+   */
+  private async handleAmbulanceService(session: SimulatorSession, digit: string): Promise<SimulatorResponse> {
+    if (digit === '0') {
+      return {
+        message: 'Emergency Services. Press 1 for Ambulance (998). Press 2 for SafeMother Helpline (116). Press 3 for Police (997). Press 4 for Hospital. Press 0 to return to Main Menu.',
+        nextMenu: 'emergency_menu',
+        action: 'EMERGENCY',
+        shouldHangup: false,
+      };
+    }
+
+    if (digit === '1') {
+      // Dispatch ambulance with mock location
+      const mockLocation = {
+        latitude: -13.9626,
+        longitude: 34.3015,
+        address: 'Lilongwe, Malawi',
+      };
+
+      try {
+        const response = await this.emergencyService.dispatchAmbulance({
+          sessionId: session.sessionId,
+          location: mockLocation,
+          patientName: session.patientName,
+          patientPhone: session.callerPhone,
+          patientType: session.patientType,
+        });
+
+        const message = response.success
+          ? `Ambulance dispatched successfully. ETA: ${response.estimatedArrival} minutes. Dispatcher: ${response.dispatcherPhone}. Press 0 to return to main menu.`
+          : `Failed to dispatch ambulance. Please call 998 directly. Press 0 to return to main menu.`;
+
+        return {
+          message,
+          nextMenu: 'main_menu',
+          action: 'AMBULANCE_DISPATCH',
+          shouldHangup: false,
+        };
+      } catch (error) {
+        this.logger.error(`Error dispatching ambulance: ${error}`);
+        return {
+          message: 'Error dispatching ambulance. Please call 998 directly. Press 0 to return to main menu.',
+          nextMenu: 'main_menu',
+          action: 'AMBULANCE_DISPATCH_ERROR',
+          shouldHangup: false,
+        };
+      }
+    }
+
+    return {
+      message: 'Ambulance Service (998). Please confirm your location. Press 1 to confirm and dispatch ambulance, or 0 to return to emergency menu.',
+      nextMenu: 'ambulance_service',
+      action: 'AMBULANCE_SERVICE',
+      shouldHangup: false,
+    };
+  }
+
+  /**
+   * Police service handler
+   */
+  private handlePoliceService(session: SimulatorSession, digit: string): SimulatorResponse {
+    if (digit === '0') {
+      return {
+        message: 'Emergency Services. Press 1 for Ambulance (998). Press 2 for SafeMother Helpline (116). Press 3 for Police (997). Press 4 for Hospital. Press 0 to return to Main Menu.',
+        nextMenu: 'emergency_menu',
+        action: 'EMERGENCY',
+        shouldHangup: false,
+      };
+    }
+
+    if (digit === '1' || digit === '2' || digit === '3') {
+      session.policeEmergencyType = digit === '1' ? 'violence' : digit === '2' ? 'crime' : 'other';
+      return {
+        message: 'Police emergency type selected. Press 1 to confirm and dispatch police, or 0 to return to emergency menu.',
+        nextMenu: 'police_emergency_type',
+        action: 'POLICE_EMERGENCY_TYPE',
+        shouldHangup: false,
+      };
+    }
+
+    return {
+      message: 'Police Emergency (997). Select emergency type: Press 1 for Violence/Assault, Press 2 for Theft/Crime, Press 3 for Other Emergency, or Press 0 to return.',
+      nextMenu: 'police_service',
+      action: 'POLICE_SERVICE',
+      shouldHangup: false,
+    };
+  }
+
+  /**
+   * Police emergency type handler
+   */
+  private async handlePoliceEmergencyType(session: SimulatorSession, digit: string): Promise<SimulatorResponse> {
+    if (digit === '0') {
+      return {
+        message: 'Police Emergency (997). Select emergency type: Press 1 for Violence/Assault, Press 2 for Theft/Crime, Press 3 for Other Emergency, or Press 0 to return.',
+        nextMenu: 'police_service',
+        action: 'POLICE_SERVICE',
+        shouldHangup: false,
+      };
+    }
+
+    if (digit === '1') {
+      // Dispatch police with mock location
+      const mockLocation = {
+        latitude: -13.9626,
+        longitude: 34.3015,
+        address: 'Lilongwe, Malawi',
+      };
+
+      try {
+        const response = await this.emergencyService.dispatchPolice({
+          sessionId: session.sessionId,
+          emergencyType: session.policeEmergencyType || 'other',
+          location: mockLocation,
+          patientName: session.patientName,
+          patientPhone: session.callerPhone,
+        });
+
+        const message = response.success
+          ? `Police dispatched successfully. ETA: ${response.estimatedArrival} minutes. Dispatcher: ${response.dispatcherPhone}. Press 0 to return to main menu.`
+          : `Failed to dispatch police. Please call 997 directly. Press 0 to return to main menu.`;
+
+        return {
+          message,
+          nextMenu: 'main_menu',
+          action: 'POLICE_DISPATCH',
+          shouldHangup: false,
+        };
+      } catch (error) {
+        this.logger.error(`Error dispatching police: ${error}`);
+        return {
+          message: 'Error dispatching police. Please call 997 directly. Press 0 to return to main menu.',
+          nextMenu: 'main_menu',
+          action: 'POLICE_DISPATCH_ERROR',
+          shouldHangup: false,
+        };
+      }
+    }
+
+    return {
+      message: 'Police emergency type selected. Press 1 to confirm and dispatch police, or 0 to return to emergency menu.',
+      nextMenu: 'police_emergency_type',
+      action: 'POLICE_EMERGENCY_TYPE',
+      shouldHangup: false,
+    };
+  }
+
+  /**
+   * Hospital service handler
+   */
+  private async handleHospitalService(session: SimulatorSession, digit: string): Promise<SimulatorResponse> {
+    if (digit === '0') {
+      return {
+        message: 'Emergency Services. Press 1 for Ambulance (998). Press 2 for SafeMother Helpline (116). Press 3 for Police (997). Press 4 for Hospital. Press 0 to return to Main Menu.',
+        nextMenu: 'emergency_menu',
+        action: 'EMERGENCY',
+        shouldHangup: false,
+      };
+    }
+
+    if (digit === '1') {
+      // Find nearest hospital with mock location
+      const mockLocation = {
+        latitude: -13.9626,
+        longitude: 34.3015,
+        address: 'Lilongwe, Malawi',
+      };
+
+      try {
+        const hospital = await this.emergencyService.findNearestHospital({
+          sessionId: session.sessionId,
+          location: mockLocation,
+        });
+
+        if (hospital) {
+          const message = `Nearest hospital: ${hospital.name} at ${hospital.address}. Distance: ${hospital.distance.toFixed(1)} km. Phone: ${hospital.phone}. ${hospital.directions}. Press 1 to dispatch ambulance or 0 to return to main menu.`;
+          return {
+            message,
+            nextMenu: 'main_menu',
+            action: 'HOSPITAL_FOUND',
+            shouldHangup: false,
+          };
+        } else {
+          return {
+            message: 'Could not find nearest hospital. Please call 998 for ambulance or 997 for police. Press 0 to return to main menu.',
+            nextMenu: 'main_menu',
+            action: 'HOSPITAL_NOT_FOUND',
+            shouldHangup: false,
+          };
+        }
+      } catch (error) {
+        this.logger.error(`Error finding hospital: ${error}`);
+        return {
+          message: 'Error finding hospital. Please call 998 for ambulance. Press 0 to return to main menu.',
+          nextMenu: 'main_menu',
+          action: 'HOSPITAL_ERROR',
+          shouldHangup: false,
+        };
+      }
+    }
+
+    return {
+      message: 'Hospital Finder. Finding nearest hospital to your location. Press 1 to confirm and find hospital, or 0 to return to emergency menu.',
+      nextMenu: 'hospital_service',
+      action: 'HOSPITAL_SERVICE',
+      shouldHangup: false,
+    };
+  }
+
+  /**
+   * Helpline service handler
+   */
+  private async handleHelplineService(session: SimulatorSession, digit: string): Promise<SimulatorResponse> {
+    if (digit === '0') {
+      return {
+        message: 'Emergency Services. Press 1 for Ambulance (998). Press 2 for SafeMother Helpline (116). Press 3 for Police (997). Press 4 for Hospital. Press 0 to return to Main Menu.',
+        nextMenu: 'emergency_menu',
+        action: 'EMERGENCY',
+        shouldHangup: false,
+      };
+    }
+
+    if (digit === '1') {
+      try {
+        const response = await this.emergencyService.connectToHelpline({
+          sessionId: session.sessionId,
+          patientName: session.patientName,
+          patientPhone: session.callerPhone,
+        });
+
+        const message = response.success
+          ? `Connected to SafeMother Helpline. A health counselor will assist you shortly. Counselor: ${response.dispatcherPhone}. Press 0 to return to main menu.`
+          : `Failed to connect to helpline. Please call 116 directly. Press 0 to return to main menu.`;
+
+        return {
+          message,
+          nextMenu: 'main_menu',
+          action: 'HELPLINE_CONNECT',
+          shouldHangup: false,
+        };
+      } catch (error) {
+        this.logger.error(`Error connecting to helpline: ${error}`);
+        return {
+          message: 'Error connecting to helpline. Please call 116 directly. Press 0 to return to main menu.',
+          nextMenu: 'main_menu',
+          action: 'HELPLINE_ERROR',
+          shouldHangup: false,
+        };
+      }
+    }
+
+    return {
+      message: 'SafeMother Helpline (116). Connecting you to a health counselor. Press 1 to confirm connection, or 0 to return to emergency menu.',
+      nextMenu: 'helpline_service',
+      action: 'HELPLINE_SERVICE',
+      shouldHangup: false,
+    };
+  }
+
+  /**
+   * Emergency contacts handler (deprecated - kept for reference)
    */
   private handleEmergencyContacts(session: SimulatorSession, digit: string): SimulatorResponse {
     return {

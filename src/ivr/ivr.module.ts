@@ -11,6 +11,7 @@ import { IvrAlertsGateway } from './ivr-alerts.gateway';
 import { IvrSessionStore } from './ivr-session.store';
 import { IvrCallLogService } from './ivr-call-log.service';
 import { IvrLanguageService } from './services/ivr-language.service';
+import { EmergencyService } from './services/emergency.service';
 import { IvrCallLog } from './entities/ivr-call-log.entity';
 import { SmsInboxService } from './sms-inbox.service';
 import { SmsInboxMessage } from './entities/sms-inbox.entity';
@@ -36,8 +37,8 @@ import { AlertsModule } from '../alerts/alerts.module';
     forwardRef(() => AlertsModule),
   ],
   controllers: [IvrController, IvrAnalyticsController, TwilioIvrController],
-  providers: [IvrService, TwilioIvrService, IvrSimulatorService, IvrAlertsGateway, IvrSessionStore, IvrCallLogService, IvrLanguageService, SmsInboxService],
-  exports: [IvrService, TwilioIvrService, IvrSimulatorService, IvrAlertsGateway, IvrCallLogService, IvrLanguageService, SmsInboxService],
+  providers: [IvrService, TwilioIvrService, IvrSimulatorService, IvrAlertsGateway, IvrSessionStore, IvrCallLogService, IvrLanguageService, EmergencyService, SmsInboxService],
+  exports: [IvrService, TwilioIvrService, IvrSimulatorService, IvrAlertsGateway, IvrCallLogService, IvrLanguageService, EmergencyService, SmsInboxService],
 })
 export class IvrModule implements OnModuleInit {
   private readonly logger = new Logger(IvrModule.name);

@@ -39,6 +39,7 @@ import { HealthFacility } from './health-facilities/entities/health-facility.ent
 import { WhoQuestion } from './who-questions/entities/who-question.entity';
 import { IvrCallLog } from './ivr/entities/ivr-call-log.entity';
 import { SmsInboxMessage } from './ivr/entities/sms-inbox.entity';
+import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 import { LastActiveMiddleware } from './common/middleware/last-active.middleware';
@@ -61,6 +62,7 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
           User, PrenatalPatient, NeonatalPatient,
           RiskAssessment, Appointment, Alert, Notification,
           FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion, IvrCallLog, SmsInboxMessage,
+          PasswordResetToken,
         ],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         logging: configService.get<string>('NODE_ENV') === 'development',

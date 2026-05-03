@@ -1,0 +1,61 @@
+export const WHO_QUESTIONS_SEED = [
+  // ── TRIMESTER 1 (0–12 weeks) ──────────────────────────────────────────────
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have severe abdominal pain?',           weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have vaginal bleeding?',                weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have persistent vomiting?',             weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have a fever?',                         weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have a severe headache?',               weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have blurred vision?',                  weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have painful urination?',               weight: 1.5, severityTag: 'MEDIUM' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you feel dizzy or have you fainted?',       weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have swelling of the face or hands?',  weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Have you had previous miscarriage symptoms?',  weight: 1.5, severityTag: 'LOW' },
+
+  // ── TRIMESTER 2 (13–27 weeks) ─────────────────────────────────────────────
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Have you noticed reduced fetal movement?',     weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have vaginal bleeding?',                weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have severe abdominal pain?',           weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have a persistent headache?',           weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have blurred vision?',                  weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have swelling of the face or hands?',  weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have a fever?',                         weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have a history of convulsions?',        weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have shortness of breath?',             weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Have you had sudden weight gain?',             weight: 1.5, severityTag: 'LOW' },
+
+  // ── TRIMESTER 3 (28+ weeks) ───────────────────────────────────────────────
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Have you noticed reduced or no fetal movement?', weight: 3.5, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have vaginal bleeding?',                weight: 3.5, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have severe abdominal pain?',           weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have a severe headache?',               weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have blurred vision?',                  weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have swelling of the face or hands?',  weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Have you had convulsions?',                    weight: 3.5, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have high blood pressure symptoms?',    weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Has your water broken early?',                 weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have a fever?',                         weight: 2.0, severityTag: 'MEDIUM' },
+
+  // ── EARLY NEONATAL (0–7 days) ─────────────────────────────────────────────
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Is your baby feeding poorly or refusing to feed?', weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Has your baby had convulsions or seizures?',       weight: 3.5, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Is your baby breathing fast (>60 breaths/min)?',   weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Does your baby have chest indrawing?',             weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Does your baby have a fever or low temperature?',  weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Is your baby lethargic or difficult to wake?',     weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Does your baby have yellow skin (jaundice)?',      weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Does the umbilical cord look infected (red/pus)?', weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Is your baby vomiting everything?',                weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Did your baby not cry at birth?',                  weight: 3.0, severityTag: 'HIGH' },
+
+  // ── LATE NEONATAL (8–28 days) ─────────────────────────────────────────────
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Is your baby feeding poorly?',                      weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have a fever?',                      weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have difficulty breathing?',         weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have persistent vomiting?',          weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have diarrhea?',                     weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Has your baby had convulsions?',                    weight: 3.5, severityTag: 'HIGH' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Is your baby lethargic or unusually sleepy?',       weight: 2.5, severityTag: 'HIGH' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have skin infections or rashes?',    weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have eye discharge?',                weight: 1.5, severityTag: 'LOW' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Is your baby failing to gain weight?',              weight: 2.0, severityTag: 'MEDIUM' },
+];

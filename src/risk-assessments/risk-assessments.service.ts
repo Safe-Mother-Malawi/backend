@@ -1,0 +1,246 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  RiskAssessment, RiskLevel, PatientType,
+} from './entities/risk-assessment.entity';
+import { CreateRiskAssessmentDto } from './dto/create-risk-assessment.dto';
+import { User, UserRole } from '../users/entities/user.entity';
+import { AlertsService } from '../alerts/alerts.service';
+import { AlertSeverity } from '../alerts/entities/alert.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import { ActivityAction } from '../activity-log/entities/activity-log.entity';
+import { UsersService } from '../users/users.service';
+import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
+import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
+
+@Injectable()
+export class RiskAssessmentsService {
+  constructor(
+    @InjectRepository(RiskAssessment)
+    private readonly repo: Repository<RiskAssessment>,
+    @InjectRepository(PrenatalPatient)
+    private readonly prenatalRepo: Repository<PrenatalPatient>,
+    @InjectRepository(NeonatalPatient)
+    private readonly neonatalRepo: Repository<NeonatalPatient>,
+    private readonly alertsService: AlertsService,
+    private readonly notificationsService: NotificationsService,
+    private readonly activityLog: ActivityLogService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  // ── Risk level derivation ─────────────────────────────────────────────────
+
+  /**
+   * Prenatal scoring (from DiagnosticScreen):
+   *   ≤4  → Low Risk
+   *   5–12 → Moderate Risk
+   *   13+  → High Risk
+   *
+   * Neonatal health assessment:
+   *   0–5  → Low Risk (Baby Appears Well)
+   *   6–14 → Moderate Risk (Monitor Closely)
+   *   15+  → Critical (Seek Help Immediately)
+   */
+  static deriveRiskLevel(score: number, patientType: PatientType): RiskLevel {
+    if (patientType === PatientType.NEONATAL) {
+      if (score <= 5)  return RiskLevel.LOW;
+      if (score <= 14) return RiskLevel.MODERATE;
+      return RiskLevel.CRITICAL;
+    }
+    // Prenatal
+    if (score <= 4)  return RiskLevel.LOW;
+    if (score <= 12) return RiskLevel.MODERATE;
+    if (score <= 20) return RiskLevel.HIGH;
+    return RiskLevel.CRITICAL;
+  }
+
+  // ── Create ────────────────────────────────────────────────────────────────
+
+  async create(dto: CreateRiskAssessmentDto, submittedBy: User): Promise<RiskAssessment> {
+    const riskLevel = RiskAssessmentsService.deriveRiskLevel(dto.score, dto.patientType);
+
+    const record = this.repo.create({
+      ...dto,
+      riskLevel,
+      submittedById: submittedBy.id,
+    });
+    const saved = await this.repo.save(record);
+
+    // ── Activity log ──────────────────────────────────────────────────────
+    await this.activityLog.log({
+      action: ActivityAction.RISK_SUBMITTED,
+      actorId: submittedBy.id,
+      description: `${dto.patientType} risk assessment submitted for ${dto.patientName}: ${riskLevel} (score ${dto.score})`,
+      resourceType: 'risk_assessment',
+      resourceId: saved.id,
+      meta: { riskLevel, score: dto.score, patientType: dto.patientType },
+    });
+
+    // ── Auto-alert for moderate/high/critical risk ────────────────────────
+    if (riskLevel === RiskLevel.MODERATE || riskLevel === RiskLevel.HIGH || riskLevel === RiskLevel.CRITICAL) {
+      const severity = riskLevel === RiskLevel.CRITICAL ? AlertSeverity.CRITICAL
+          : riskLevel === RiskLevel.HIGH ? AlertSeverity.HIGH
+          : AlertSeverity.MEDIUM;
+
+      // Resolve patient location for routing the alert to the right clinicians
+      const location = await this._resolvePatientLocation(dto.patientId, dto.patientType, submittedBy);
+
+      // Create a clinician-visible alert routed by district + facility
+      await this.alertsService.createFromRisk({
+        patientName: dto.patientName,
+        patientStatus: dto.patientType === PatientType.PRENATAL ? 'Prenatal' : 'Neonatal',
+        contact: dto.patientPhone,
+        reason: `${riskLevel} — Score ${dto.score}. ${dto.message}`,
+        symptoms: dto.answers
+          ? Object.values(dto.answers).filter((v) => typeof v === 'string') as string[]
+          : [],
+        severity,
+        patientId: dto.patientId,
+        clinicianId: submittedBy.role === UserRole.CLINICIAN ? submittedBy.id : null,
+        district:    location.district,
+        facilityName: location.facilityName,
+      });
+
+      await this.activityLog.log({
+        action: ActivityAction.RISK_HIGH_FLAGGED,
+        actorId: submittedBy.id,
+        description: `HIGH RISK flagged for ${dto.patientName} — ${riskLevel}`,
+        resourceType: 'risk_assessment',
+        resourceId: saved.id,
+        meta: { riskLevel, patientPhone: dto.patientPhone },
+      });
+
+      // Notify all clinicians about the high-risk case
+      await this.notifyAllClinicians(dto.patientName, riskLevel, dto.patientType);
+
+      // Notify DHOs about the high-risk case from a clinician
+      if (submittedBy.role === UserRole.CLINICIAN) {
+        await this.notificationsService.notifyDHOs(
+          `High-Risk Case: ${dto.patientName}`,
+          `Clinician ${submittedBy.fullName} flagged a ${dto.patientType} patient as ${riskLevel} (score ${dto.score}).`,
+          NotificationType.ALERT,
+        );
+      }
+    }
+
+    // ── Notify the patient themselves ─────────────────────────────────────
+    if (submittedBy.role === UserRole.PRENATAL || submittedBy.role === UserRole.NEONATAL) {
+      const notifType = riskLevel === RiskLevel.LOW
+        ? NotificationType.INFO
+        : NotificationType.ALERT;
+
+      await this.notificationsService.create({
+        userId: submittedBy.id,
+        title: `Health Check Result: ${riskLevel}`,
+        body: dto.message,
+        type: notifType,
+      });
+    }
+
+    return saved;
+  }
+
+  // ── Queries ───────────────────────────────────────────────────────────────
+
+  async findAll(): Promise<RiskAssessment[]> {
+    return this.repo.find({
+      relations: ['submittedBy'],
+      order: { submittedAt: 'DESC' },
+    });
+  }
+
+  async findByPatient(patientId: string): Promise<RiskAssessment[]> {
+    return this.repo.find({
+      where: { patientId },
+      relations: ['submittedBy'],
+      order: { submittedAt: 'DESC' },
+    });
+  }
+
+  async findOne(id: string): Promise<RiskAssessment> {
+    const record = await this.repo.findOne({ where: { id }, relations: ['submittedBy'] });
+    if (!record) throw new NotFoundException('Risk assessment not found.');
+    return record;
+  }
+
+  async delete(id: string): Promise<void> {
+    const record = await this.findOne(id);
+    await this.repo.remove(record);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /**
+   * Resolve the district and healthCentre for a patient record.
+   * Priority:
+   * 1. Patient record (prenatal/neonatal table)
+   * 2. Linked mobile user account (users table via userId)
+   * 3. Submitting user's own district/facility
+   */
+  private async _resolvePatientLocation(
+    patientId: string,
+    patientType: PatientType,
+    submittedBy?: User,
+  ): Promise<{ district: string | null; facilityName: string | null }> {
+    try {
+      let district: string | null = null;
+      let facilityName: string | null = null;
+
+      if (patientType === PatientType.PRENATAL) {
+        const p = await this.prenatalRepo.findOne({ where: { id: patientId } });
+        district     = p?.district     ?? null;
+        facilityName = p?.facilityName ?? null;
+
+        // Fallback: check linked user account
+        if ((!district || !facilityName) && p?.userId) {
+          const linkedUser = await this.usersService.findById(p.userId);
+          district     = district     ?? linkedUser?.district     ?? null;
+          facilityName = facilityName ?? linkedUser?.facilityName ?? null;
+        }
+      } else {
+        const p = await this.neonatalRepo.findOne({ where: { id: patientId } });
+        district     = p?.district     ?? null;
+        facilityName = p?.facilityName ?? null;
+
+        // Fallback: check linked user account
+        if ((!district || !facilityName) && p?.userId) {
+          const linkedUser = await this.usersService.findById(p.userId);
+          district     = district     ?? linkedUser?.district     ?? null;
+          facilityName = facilityName ?? linkedUser?.facilityName ?? null;
+        }
+      }
+
+      // Final fallback: use the submitting user's location
+      if (!district && submittedBy) district = submittedBy.district ?? null;
+      if (!facilityName && submittedBy) facilityName = submittedBy.facilityName ?? null;
+
+      return { district, facilityName };
+    } catch {
+      return {
+        district:     submittedBy?.district     ?? null,
+        facilityName: submittedBy?.facilityName ?? null,
+      };
+    }
+  }
+
+  private async notifyAllClinicians(
+    patientName: string,
+    riskLevel: RiskLevel,
+    patientType: PatientType,
+  ): Promise<void> {
+    // Find all clinician user IDs
+    const clinicians = await this.usersService.findByRole(UserRole.CLINICIAN);
+    const ids = clinicians.map((c) => c.id);
+    if (ids.length === 0) return;
+
+    await this.notificationsService.broadcast(
+      ids,
+      `${riskLevel} — ${patientName}`,
+      `A ${patientType} patient has been flagged as ${riskLevel}. Please review immediately.`,
+      NotificationType.ALERT,
+    );
+  }
+}

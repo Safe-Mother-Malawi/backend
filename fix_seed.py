@@ -1,8 +1,0 @@
-f = open('src/health-facilities/seed/facilities.seed.ts', encoding='utf-8').read()
-f2 = f.replace("district:'Nkhatabay'", "district:'Nkhata Bay'")
-f2 = f2.replace("district:'Mzimba North'", "district:'Mzimba'")
-f2 = f2.replace("district:'Mzimba South'", "district:'Mzimba'")
-print('Nkhatabay remaining:', f2.count("'Nkhatabay'"))
-print('Mzimba North remaining:', f2.count("'Mzimba North'"))
-open('src/health-facilities/seed/facilities.seed.ts', 'w', encoding='utf-8').write(f2)
-print('Part 1 done')

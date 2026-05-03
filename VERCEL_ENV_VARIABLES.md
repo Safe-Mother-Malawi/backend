@@ -70,7 +70,7 @@ TWILIO_PHONE_NUMBER=YOUR_TWILIO_PHONE_NUMBER
 ```
 PUBLIC_URL=https://wisdom-thermal-gradation.ngrok-free.dev
 BACKEND_URL=https://backend-5fxl.vercel.app
-FRONTEND_URL=https://your-frontend-url.vercel.app
+FRONTEND_URL=https://safe-mother-malawi-xt8u.vercel.app
 ```
 
 **Note**: Update `BACKEND_URL` and `FRONTEND_URL` with your actual Vercel URLs after deployment.

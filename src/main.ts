@@ -20,11 +20,17 @@ async function bootstrap() {
     }),
   );
 
-  // ── CORS (allow Flutter web + mobile dev) ────────────────────────────────
+  // ── CORS (allow Vercel frontend + mobile) ────────────────────────────────
   app.enableCors({
-    origin: '*', // tighten this in production
+    origin: [
+      'https://safe-mother-malawi-xt8u.vercel.app', // Production frontend
+      'http://localhost:5173', // Local development
+      'http://localhost:3000', // Local development alternative
+      '*', // Allow all for mobile apps
+    ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
   });
 
   // ── Global prefix ────────────────────────────────────────────────────────

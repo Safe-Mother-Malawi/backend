@@ -67,7 +67,7 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
             FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion, IvrCallLog, SmsInboxMessage,
             PasswordResetToken,
           ],
-          synchronize: configService.get<string>('NODE_ENV') !== 'production',
+          synchronize: true, // Auto-create tables (set to false after first successful deployment)
           logging: configService.get<string>('NODE_ENV') === 'development',
           ssl: databaseUrl.includes('localhost') ? false : { rejectUnauthorized: false },
         };

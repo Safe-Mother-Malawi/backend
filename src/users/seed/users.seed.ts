@@ -27,20 +27,19 @@ export class UsersSeedService {
     const defaultUsers = [
       {
         email: 'admin@safemothermalawi.mw',
+        phone: '+265991234567', // Default phone for admin
         password: 'Admin@123',
-        firstName: 'System',
-        lastName: 'Administrator',
+        fullName: 'System Administrator',
         role: 'admin',
-        status: 'active',
+        district: 'Lilongwe',
       },
       {
         email: 'dho@safemothermalawi.mw',
+        phone: '+265991234568', // Default phone for DHO
         password: 'Dho@123',
-        firstName: 'District',
-        lastName: 'Health Officer',
+        fullName: 'District Health Officer',
         role: 'dho',
         district: 'Lilongwe',
-        status: 'active',
       },
     ];
 
@@ -49,8 +48,13 @@ export class UsersSeedService {
         const hashedPassword = await bcrypt.hash(userData.password, 10);
         
         const user = this.userRepository.create({
-          ...userData,
-          password: hashedPassword,
+          email: userData.email,
+          phone: userData.phone,
+          passwordHash: hashedPassword,
+          fullName: userData.fullName,
+          role: userData.role as any,
+          district: userData.district,
+          isActive: true,
         });
 
         await this.userRepository.save(user);

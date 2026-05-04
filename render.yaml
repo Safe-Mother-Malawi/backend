@@ -1,0 +1,58 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: safemothermalawi-db
+    env: docker
+    plan: free
+    region: oregon
+    databaseName: safemothermalawi
+    databaseUser: safemothermalawi_user
+
+  # Backend Web Service
+  - type: web
+    name: safemothermalawi-backend
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: npm install --include=dev && npx nest build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: safemothermalawi-db
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USER
+        value: kachstephano@gmail.com
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        value: kachstephano@gmail.com
+      - key: EMAIL_FROM_NAME
+        value: Safe Mother Malawi
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        value: +19086604827
+      - key: PUBLIC_URL
+        value: https://wisdom-thermal-gradation.ngrok-free.dev
+      - key: BACKEND_URL
+        value: https://safemothermalawi-backend.onrender.com
+      - key: FRONTEND_URL
+        value: https://safe-mother-malawi-xt8u.vercel.app

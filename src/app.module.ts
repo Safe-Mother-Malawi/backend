@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { UsersSeedService } from './users/seed/users.seed';
 import { PatientsModule } from './patients/patients.module';
 import { RiskAssessmentsModule } from './risk-assessments/risk-assessments.module';
 import { RiskEngineModule } from './risk-engine/risk-engine.module';
@@ -96,6 +97,15 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
   providers: [AppService],
 })
 export class AppModule implements NestModule {
+  constructor(
+    private readonly usersSeedService: UsersSeedService,
+  ) {}
+
+  async onModuleInit() {
+    // Seed default users on first startup
+    await this.usersSeedService.seed();
+  }
+
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LastActiveMiddleware).forRoutes('*');
   }

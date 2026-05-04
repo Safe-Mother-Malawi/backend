@@ -51,26 +51,48 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get<string>('DB_USERNAME', 'postgres'),
-        password: configService.get<string>('DB_PASSWORD', 'postgres'),
-        database: configService.get<string>('DB_NAME', 'safemothermalawi'),
-        entities: [
-          User, PrenatalPatient, NeonatalPatient,
-          RiskAssessment, Appointment, Alert, Notification,
-          FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion, IvrCallLog, SmsInboxMessage,
-          PasswordResetToken,
-        ],
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-        logging: configService.get<string>('NODE_ENV') === 'development',
-        // SSL configuration for Supabase and other cloud databases
-        ssl: configService.get<string>('DB_HOST', 'localhost') !== 'localhost'
-          ? { rejectUnauthorized: false }
-          : false,
-      }),
+      useFactory: (configService: ConfigService) => {
+        // Support DATABASE_URL (Render PostgreSQL) or individual DB variables
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        
+        if (databaseUrl) {
+          // Use DATABASE_URL if provided (Render PostgreSQL)
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            entities: [
+              User, PrenatalPatient, NeonatalPatient,
+              RiskAssessment, Appointment, Alert, Notification,
+              FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion, IvrCallLog, SmsInboxMessage,
+              PasswordResetToken,
+            ],
+            synchronize: configService.get<string>('NODE_ENV') !== 'production',
+            logging: configService.get<string>('NODE_ENV') === 'development',
+            ssl: { rejectUnauthorized: false },
+          };
+        }
+        
+        // Fallback to individual DB variables (local development or Supabase)
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DB_HOST', 'localhost'),
+          port: configService.get<number>('DB_PORT', 5432),
+          username: configService.get<string>('DB_USERNAME', 'postgres'),
+          password: configService.get<string>('DB_PASSWORD', 'postgres'),
+          database: configService.get<string>('DB_NAME', 'safemothermalawi'),
+          entities: [
+            User, PrenatalPatient, NeonatalPatient,
+            RiskAssessment, Appointment, Alert, Notification,
+            FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion, IvrCallLog, SmsInboxMessage,
+            PasswordResetToken,
+          ],
+          synchronize: configService.get<string>('NODE_ENV') !== 'production',
+          logging: configService.get<string>('NODE_ENV') === 'development',
+          ssl: configService.get<string>('DB_HOST', 'localhost') !== 'localhost'
+            ? { rejectUnauthorized: false }
+            : false,
+        };
+      },
     }),
 
     // Order matters — ActivityLogModule first (others depend on it)

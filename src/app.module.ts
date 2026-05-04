@@ -66,6 +66,10 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
         ],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         logging: configService.get<string>('NODE_ENV') === 'development',
+        // SSL configuration for Supabase and other cloud databases
+        ssl: configService.get<string>('DB_HOST', 'localhost') !== 'localhost'
+          ? { rejectUnauthorized: false }
+          : false,
       }),
     }),
 

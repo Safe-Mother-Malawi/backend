@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { IvrController } from './ivr.controller';
 import { IvrAnalyticsController } from './ivr-analytics.controller';
 import { TwilioIvrController } from './twilio-ivr.controller';
+import { TwilioVoiceTokenController } from './twilio-voice-token.controller';
 import { IvrService } from './ivr.service';
 import { TwilioIvrService } from './twilio-ivr.service';
 import { IvrSimulatorService } from './ivr-simulator.service';
@@ -36,7 +37,7 @@ import { AlertsModule } from '../alerts/alerts.module';
     UsersModule,
     forwardRef(() => AlertsModule),
   ],
-  controllers: [IvrController, IvrAnalyticsController, TwilioIvrController],
+  controllers: [IvrController, IvrAnalyticsController, TwilioIvrController, TwilioVoiceTokenController],
   providers: [IvrService, TwilioIvrService, IvrSimulatorService, IvrAlertsGateway, IvrSessionStore, IvrCallLogService, IvrLanguageService, EmergencyService, SmsInboxService],
   exports: [IvrService, TwilioIvrService, IvrSimulatorService, IvrAlertsGateway, IvrCallLogService, IvrLanguageService, EmergencyService, SmsInboxService],
 })

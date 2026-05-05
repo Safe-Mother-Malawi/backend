@@ -10,7 +10,7 @@ services:
 
   # Backend Web Service
   - type: web
-    name: safemothermalawi-backend
+    name: backend-gsgb
     env: node
     region: oregon
     plan: free

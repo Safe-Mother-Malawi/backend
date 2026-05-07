@@ -20,17 +20,9 @@ async function bootstrap() {
     }),
   );
 
-  // ── CORS (allow Vercel frontend + mobile) ────────────────────────────────
+  // ── CORS (allow all origins for now) ─────────────────────────────────────
   app.enableCors({
-    origin: [
-      'https://safemothermalawi-silk.vercel.app', // Production frontend (current)
-      'https://safemothermalawi.vercel.app', // Production frontend (new)
-      'https://safe-mother-malawi.vercel.app', // Production frontend (alternative)
-      'https://safe-mother-malawi-xt8u.vercel.app', // Production frontend (old)
-      'http://localhost:5173', // Local development
-      'http://localhost:3000', // Local development alternative
-      '*', // Allow all for mobile apps
-    ],
+    origin: true, // Allow all origins
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

@@ -23,7 +23,9 @@ async function bootstrap() {
   // ── CORS (allow Vercel frontend + mobile) ────────────────────────────────
   app.enableCors({
     origin: [
-      'https://safe-mother-malawi-xt8u.vercel.app', // Production frontend
+      'https://safemothermalawi.vercel.app', // Production frontend (new)
+      'https://safe-mother-malawi.vercel.app', // Production frontend (alternative)
+      'https://safe-mother-malawi-xt8u.vercel.app', // Production frontend (old)
       'http://localhost:5173', // Local development
       'http://localhost:3000', // Local development alternative
       '*', // Allow all for mobile apps

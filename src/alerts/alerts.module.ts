@@ -4,10 +4,9 @@ import { Alert } from './entities/alert.entity';
 import { AlertsService } from './alerts.service';
 import { AlertsController } from './alerts.controller';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
-import { IvrModule } from '../ivr/ivr.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Alert]), ActivityLogModule, IvrModule],
+  imports: [TypeOrmModule.forFeature([Alert]), ActivityLogModule],
   providers: [AlertsService],
   controllers: [AlertsController],
   exports: [AlertsService],

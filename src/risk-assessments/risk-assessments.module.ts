@@ -7,7 +7,6 @@ import { AlertsModule } from '../alerts/alerts.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { UsersModule } from '../users/users.module';
-import { IvrModule } from '../ivr/ivr.module';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 
@@ -18,7 +17,6 @@ import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
     NotificationsModule,
     ActivityLogModule,
     UsersModule,
-    forwardRef(() => IvrModule),
   ],
   providers: [RiskAssessmentsService],
   controllers: [RiskAssessmentsController],

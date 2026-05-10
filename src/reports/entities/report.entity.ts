@@ -9,7 +9,6 @@ export enum ReportType {
   TASK_REPORT      = 'Task Report',
   CLINICIAN_REPORT = 'Clinician Report',
   FULL_SYSTEM      = 'Full System Report',
-  IVR_REPORT       = 'IVR Report',
 }
 
 export enum ReportFormat {

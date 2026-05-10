@@ -7,12 +7,10 @@ import { RiskAssessment } from '../risk-assessments/entities/risk-assessment.ent
 import { Alert } from '../alerts/entities/alert.entity';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsController } from './analytics.controller';
-import { IvrModule } from '../ivr/ivr.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, PrenatalPatient, NeonatalPatient, RiskAssessment, Alert]),
-    forwardRef(() => IvrModule),
   ],
   providers: [AnalyticsService],
   controllers: [AnalyticsController],

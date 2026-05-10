@@ -51,15 +51,5 @@ export class AnalyticsController {
     return this.service.getTaskAnalytics();
   }
 
-  /** GET /api/v1/analytics/ivr — IVR call stats for DHO/admin dashboard */
-  @Get('ivr')
-  getIvrStats(
-    @Query('from') from?: string,
-    @Query('to')   to?: string,
-  ) {
-    return this.service.getIvrStats(
-      from ? new Date(from) : undefined,
-      to   ? new Date(to)   : undefined,
-    );
-  }
+
 }

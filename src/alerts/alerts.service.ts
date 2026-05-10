@@ -6,7 +6,7 @@ import { CreateAlertDto } from './dto/create-alert.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ActivityAction } from '../activity-log/entities/activity-log.entity';
-import { IvrService } from '../ivr/ivr.service';
+
 
 @Injectable()
 export class AlertsService {
@@ -16,7 +16,6 @@ export class AlertsService {
     @InjectRepository(Alert)
     private readonly repo: Repository<Alert>,
     private readonly activityLog: ActivityLogService,
-    private readonly ivrService: IvrService,
   ) {}
 
   async create(dto: CreateAlertDto, clinician: User): Promise<Alert> {

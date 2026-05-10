@@ -7,7 +7,6 @@ async function bootstrap() {
 
   // ── Body parsers ─────────────────────────────────────────────────────────
   // Must be registered before global pipes.
-  // Africa's Talking IVR webhooks send application/x-www-form-urlencoded.
   app.use(require('express').urlencoded({ extended: true }));
   app.use(require('express').json());
 
@@ -15,7 +14,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false, // IVR webhook fields are not a DTO — don't reject unknown keys
+      forbidNonWhitelisted: false,
       transform: true,
     }),
   );

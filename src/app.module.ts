@@ -21,7 +21,6 @@ import { ReportsModule } from './reports/reports.module';
 import { ContactModule } from './contact/contact.module';
 import { HealthFacilitiesModule } from './health-facilities/health-facilities.module';
 import { WhoQuestionsModule } from './who-questions/who-questions.module';
-import { IvrModule } from './ivr/ivr.module';
 
 // ── Entities ──────────────────────────────────────────────────────────────────
 import { User } from './users/entities/user.entity';
@@ -38,8 +37,7 @@ import { ActivityLog } from './activity-log/entities/activity-log.entity';
 import { Report } from './reports/entities/report.entity';
 import { HealthFacility } from './health-facilities/entities/health-facility.entity';
 import { WhoQuestion } from './who-questions/entities/who-question.entity';
-import { IvrCallLog } from './ivr/entities/ivr-call-log.entity';
-import { SmsInboxMessage } from './ivr/entities/sms-inbox.entity';
+
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
 // ── Middleware ────────────────────────────────────────────────────────────────
@@ -65,7 +63,7 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
           entities: [
             User, PrenatalPatient, NeonatalPatient,
             RiskAssessment, Appointment, Alert, Notification,
-            FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion, IvrCallLog, SmsInboxMessage,
+            FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion,
             PasswordResetToken,
           ],
           synchronize: true, // Auto-create tables (set to false after first successful deployment)
@@ -91,7 +89,6 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
     ContactModule,
     HealthFacilitiesModule,
     WhoQuestionsModule,
-    IvrModule,
   ],
   controllers: [AppController],
   providers: [AppService],

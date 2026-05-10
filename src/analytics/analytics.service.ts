@@ -6,7 +6,6 @@ import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 import { RiskAssessment, RiskLevel } from '../risk-assessments/entities/risk-assessment.entity';
 import { Alert } from '../alerts/entities/alert.entity';
-import { IvrCallLogService } from '../ivr/ivr-call-log.service';
 
 @Injectable()
 export class AnalyticsService {
@@ -21,8 +20,6 @@ export class AnalyticsService {
     private readonly riskRepo: Repository<RiskAssessment>,
     @InjectRepository(Alert)
     private readonly alertsRepo: Repository<Alert>,
-    @Inject(forwardRef(() => IvrCallLogService))
-    private readonly ivrCallLogService: IvrCallLogService,
   ) {}
 
   async getOverview() {
@@ -190,15 +187,7 @@ export class AnalyticsService {
     };
   }
 
-  /**
-   * IVR Analytics — delegates to IvrCallLogService for the last 30 days.
-   * Exposed at GET /api/v1/analytics/ivr for the DHO dashboard.
-   */
-  async getIvrStats(from?: Date, to?: Date) {
-    const end   = to   ?? new Date();
-    const start = from ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    return this.ivrCallLogService.getSummary(start, end);
-  }
+
 
   /**
    * Task Analytics — appointment completion tracking.

@@ -7,7 +7,7 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { UsersService } from '../users/users.service';
-import { IvrService } from '../ivr/ivr.service';
+
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 
@@ -24,8 +24,6 @@ export class AppointmentsService {
     private readonly neonatalRepo: Repository<NeonatalPatient>,
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
-    @Inject(forwardRef(() => IvrService))
-    private readonly ivrService: IvrService,
   ) {}
 
   async create(dto: CreateAppointmentDto, createdBy: User): Promise<Appointment> {

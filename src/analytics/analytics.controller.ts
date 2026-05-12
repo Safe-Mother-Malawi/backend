@@ -51,5 +51,15 @@ export class AnalyticsController {
     return this.service.getTaskAnalytics();
   }
 
+  @Get('anc-analytics')
+  getANCAnalytics(@Query('district') district?: string) {
+    return this.service.getANCAnalytics(district);
+  }
+
+  @Get('anc-compliance')
+  getANCComplianceSummary(@Query('district') district?: string) {
+    return this.service.getANCComplianceSummary(district);
+  }
+
 
 }

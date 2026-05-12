@@ -5,7 +5,9 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 import { RiskAssessment, RiskLevel } from '../risk-assessments/entities/risk-assessment.entity';
+import { Appointment, AppointmentType, AppointmentStatus } from '../appointments/entities/appointment.entity';
 import { Alert } from '../alerts/entities/alert.entity';
+import { ANCTrackingService } from '../appointments/services/anc-tracking.service';
 
 @Injectable()
 export class AnalyticsService {
@@ -18,8 +20,12 @@ export class AnalyticsService {
     private readonly neonatalRepo: Repository<NeonatalPatient>,
     @InjectRepository(RiskAssessment)
     private readonly riskRepo: Repository<RiskAssessment>,
+    @InjectRepository(Appointment)
+    private readonly appointmentRepo: Repository<Appointment>,
     @InjectRepository(Alert)
     private readonly alertsRepo: Repository<Alert>,
+    @Inject(forwardRef(() => ANCTrackingService))
+    private readonly ancService: ANCTrackingService,
   ) {}
 
   async getOverview() {
@@ -221,5 +227,112 @@ export class AnalyticsService {
       completionRate,
       missedRate: totalCount > 0 ? Math.round((cancelledCount / totalCount) * 100) : 0,
     };
+  }
+
+  /**
+   * ANC Attendance Analytics — specific tracking for antenatal care visits
+   */
+  async getANCAnalytics(district?: string) {
+    try {
+      // Get ANC-specific statistics
+      const ancStats = await this.ancService.getANCAttendanceStats(
+        district ? { district } : undefined
+      );
+
+      // Get ANC appointments by month for trends
+      const ancTrends = await this.appointmentRepo.manager.query(`
+        SELECT
+          TO_CHAR("date", 'Mon') AS month,
+          EXTRACT(MONTH FROM "date")::int AS "monthNum",
+          COUNT(*)::int AS total,
+          COUNT(CASE WHEN status = 'completed' THEN 1 END)::int AS attended,
+          COUNT(CASE WHEN status = 'no_show' THEN 1 END)::int AS missed
+        FROM appointments
+        WHERE type = 'anc' AND "date" >= NOW() - INTERVAL '12 months'
+        ${district ? `AND "prenatalPatientId" IN (
+          SELECT id FROM prenatal_patients WHERE district = '${district}'
+        )` : ''}
+        GROUP BY TO_CHAR("date", 'Mon'), EXTRACT(MONTH FROM "date")
+        ORDER BY "monthNum" ASC
+      `);
+
+      // Get compliance distribution
+      const complianceDistribution = await this.appointmentRepo.manager.query(`
+        SELECT
+          CASE 
+            WHEN "isANCCompliant" = true THEN 'Compliant'
+            ELSE 'Non-Compliant'
+          END as compliance_status,
+          COUNT(*)::int as count
+        FROM appointments
+        WHERE type = 'anc'
+        ${district ? `AND "prenatalPatientId" IN (
+          SELECT id FROM prenatal_patients WHERE district = '${district}'
+        )` : ''}
+        GROUP BY "isANCCompliant"
+      `);
+
+      return {
+        ...ancStats,
+        monthlyTrends: ancTrends,
+        complianceDistribution,
+      };
+    } catch (error) {
+      // Fallback if ANC service is not available
+      return {
+        totalANCAppointments: 0,
+        attendedAppointments: 0,
+        missedAppointments: 0,
+        attendanceRate: 0,
+        complianceRate: 0,
+        averageVisitsPerPatient: 0,
+        monthlyTrends: [],
+        complianceDistribution: [],
+      };
+    }
+  }
+
+  /**
+   * Get ANC compliance summary for dashboard
+   */
+  async getANCComplianceSummary(district?: string) {
+    try {
+      const poorCompliancePatients = await this.ancService.getPatientsWithPoorCompliance(district);
+      
+      const totalPrenatalPatients = await this.prenatalRepo.count(
+        district ? { where: { district } } : undefined
+      );
+
+      const highRiskPatients = poorCompliancePatients.filter(p => p.isHighRisk).length;
+      const averageCompliance = poorCompliancePatients.length > 0
+        ? Math.round(poorCompliancePatients.reduce((sum, p) => sum + p.complianceRate, 0) / poorCompliancePatients.length)
+        : 100;
+
+      return {
+        totalPrenatalPatients,
+        patientsWithPoorCompliance: poorCompliancePatients.length,
+        highRiskPatients,
+        averageComplianceRate: averageCompliance,
+        complianceCategories: {
+          excellent: poorCompliancePatients.filter(p => p.complianceRate >= 90).length,
+          good: poorCompliancePatients.filter(p => p.complianceRate >= 75 && p.complianceRate < 90).length,
+          fair: poorCompliancePatients.filter(p => p.complianceRate >= 50 && p.complianceRate < 75).length,
+          poor: poorCompliancePatients.filter(p => p.complianceRate < 50).length,
+        },
+      };
+    } catch (error) {
+      return {
+        totalPrenatalPatients: 0,
+        patientsWithPoorCompliance: 0,
+        highRiskPatients: 0,
+        averageComplianceRate: 0,
+        complianceCategories: {
+          excellent: 0,
+          good: 0,
+          fair: 0,
+          poor: 0,
+        },
+      };
+    }
   }
 }

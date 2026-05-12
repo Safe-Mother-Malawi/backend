@@ -3,19 +3,23 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
+import { ANCController } from './anc.controller';
+import { ANCTrackingService } from './services/anc-tracking.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Appointment, PrenatalPatient, NeonatalPatient]),
     NotificationsModule,
     UsersModule,
+    forwardRef(() => AnalyticsModule),
   ],
-  providers: [AppointmentsService],
-  controllers: [AppointmentsController],
-  exports: [AppointmentsService],
+  providers: [AppointmentsService, ANCTrackingService],
+  controllers: [AppointmentsController, ANCController],
+  exports: [AppointmentsService, ANCTrackingService],
 })
 export class AppointmentsModule {}

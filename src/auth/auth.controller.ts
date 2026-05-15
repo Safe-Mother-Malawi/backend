@@ -126,11 +126,31 @@ export class AuthController {
   @Post('forgot-password/request-reset')
   @HttpCode(HttpStatus.OK)
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
-    // Neutral response regardless of whether email exists
-    await this.authService.requestPasswordReset(dto.email);
-    return {
-      message: 'If an account exists with this email, we have sent reset instructions.',
-    };
+    try {
+      // Neutral response regardless of whether email exists
+      await this.authService.requestPasswordReset(dto.email);
+      return {
+        message: 'If an account exists with this email, we have sent reset instructions.',
+      };
+    } catch (error) {
+      // Check for specific email service errors
+      if (error.message.includes('535-5.7.8') || error.message.includes('Username and Password not accepted')) {
+        return {
+          error: 'Email service authentication failed. Please use the security question option or contact support.',
+          useSecurityQuestion: true,
+        };
+      } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
+        return {
+          error: 'Email service is temporarily unavailable. Please try the security question option.',
+          useSecurityQuestion: true,
+        };
+      } else {
+        return {
+          error: 'Failed to send reset email. Please use the security question option or try again later.',
+          useSecurityQuestion: true,
+        };
+      }
+    }
   }
 
   /** POST /auth/forgot-password/reset-with-token (Email-based flow) */
@@ -151,6 +171,28 @@ export class AuthController {
   async verifyResetToken(@Param('token') token: string) {
     const isValid = await this.authService.verifyResetToken(token);
     return { valid: isValid };
+  }
+
+  /** GET /auth/email/health (Check email service health) */
+  @Get('email/health')
+  @HttpCode(HttpStatus.OK)
+  async checkEmailHealth() {
+    try {
+      // This will test the email configuration
+      const testResult = await this.authService.testEmailService();
+      return { 
+        healthy: testResult, 
+        service: 'Gmail SMTP',
+        message: testResult ? 'Email service is operational' : 'Email service is not configured or failing'
+      };
+    } catch (error) {
+      return { 
+        healthy: false, 
+        service: 'Gmail SMTP',
+        error: error.message,
+        message: 'Email service health check failed'
+      };
+    }
   }
 
   /** POST /auth/change-password */

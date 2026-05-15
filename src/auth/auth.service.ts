@@ -400,6 +400,17 @@ export class AuthService {
     }
   }
 
+  // ── Email Service Health Check ────────────────────────────────────────────
+
+  async testEmailService(): Promise<boolean> {
+    try {
+      return await this.passwordResetEmailService.testEmailConfiguration();
+    } catch (error) {
+      console.error('Email service test failed:', error);
+      return false;
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   private async generateTokens(user: User): Promise<AuthTokens> {

@@ -47,6 +47,25 @@ export class PasswordResetEmailService {
   }
 
   /**
+   * Test email configuration and connectivity
+   */
+  async testEmailConfiguration(): Promise<boolean> {
+    if (!this.transporter) {
+      this.logger.warn('Email transporter not initialized');
+      return false;
+    }
+    
+    try {
+      await this.transporter.verify();
+      this.logger.log('Email configuration test successful');
+      return true;
+    } catch (error) {
+      this.logger.error('Email configuration test failed:', error);
+      return false;
+    }
+  }
+
+  /**
    * Send password reset email with token link
    */
   async sendResetEmail(email: string, token: string, userName: string): Promise<void> {

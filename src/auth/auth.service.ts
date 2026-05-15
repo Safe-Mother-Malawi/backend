@@ -318,7 +318,8 @@ export class AuthService {
       await this.passwordResetEmailService.sendResetEmail(email, resetToken, user.fullName);
     } catch (error) {
       console.error('Failed to send password reset email:', error);
-      // Don't fail the request if email sending fails
+      // Propagate the error so the mobile app knows the email failed
+      throw new BadRequestException('Failed to send reset email. Please check your email address and try again later.');
     }
   }
 

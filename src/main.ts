@@ -25,6 +25,8 @@ async function bootstrap() {
       'https://safemothermalawi-silk.vercel.app',
       'https://safemothermalawi.vercel.app',
       'http://localhost:3000',
+      'http://localhost:5001',  // Mobile app port
+      'http://localhost:5002',  // Web app port
       /\.vercel\.app$/,  // Allow all Vercel preview deployments
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

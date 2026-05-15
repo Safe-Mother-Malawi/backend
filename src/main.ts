@@ -25,8 +25,22 @@ async function bootstrap() {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
       
-      // Allow all localhost origins for development
+      // Allow all localhost origins for development (explicit patterns)
       if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        return callback(null, true);
+      }
+      
+      // Allow specific localhost ports used by Flutter
+      const localhostOrigins = [
+        'http://localhost:5004',
+        'http://localhost:5002',
+        'http://localhost:3000',
+        'http://127.0.0.1:5004',
+        'http://127.0.0.1:5002',
+        'http://127.0.0.1:3000',
+      ];
+      
+      if (localhostOrigins.includes(origin)) {
         return callback(null, true);
       }
       

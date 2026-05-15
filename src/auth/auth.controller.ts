@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Options,
 } from '@nestjs/common';
 import { IsOptional, IsString, IsEmail } from 'class-validator';
 import { AuthService } from './auth.service';
@@ -37,6 +38,14 @@ export class AuthController {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
+
+  // ── CORS preflight handling ──────────────────────────────────────────────
+
+  @Options('*')
+  @HttpCode(HttpStatus.OK)
+  handleOptions() {
+    return {};
+  }
 
   /** POST /auth/register */
   @Post('register')

@@ -19,21 +19,54 @@ async function bootstrap() {
     }),
   );
 
-  // ── CORS (allow Vercel and local development) ────────────────────────────
+  // ── CORS (comprehensive configuration for Flutter web and all environments) ──
   app.enableCors({
-    origin: [
-      'https://safemothermalawi-silk.vercel.app',
-      'https://safemothermalawi.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:5001',  // Mobile app port
-      'http://localhost:5002',  // Web app port
-      /\.vercel\.app$/,  // Allow all Vercel preview deployments
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      // Allow all localhost origins for development
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        return callback(null, true);
+      }
+      
+      // Allow Vercel deployments
+      if (origin.includes('vercel.app')) {
+        return callback(null, true);
+      }
+      
+      // Allow specific production domains
+      const allowedOrigins = [
+        'https://safemothermalawi-silk.vercel.app',
+        'https://safemothermalawi.vercel.app',
+      ];
+      
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // For development, allow all origins
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      
+      callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Accept', 
+      'Origin', 
+      'X-Requested-With',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers'
     ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    exposedHeaders: ['Content-Length', 'Content-Type'],
     credentials: true,
     preflightContinue: false,
-    optionsSuccessStatus: 204,
+    optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+    maxAge: 86400, // Cache preflight response for 24 hours
   });
 
   // ── Global prefix ────────────────────────────────────────────────────────

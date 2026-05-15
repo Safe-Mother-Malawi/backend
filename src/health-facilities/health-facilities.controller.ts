@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Query,
+  Controller, Get, Post, Body, Query, Options,
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { HealthFacilitiesService } from './health-facilities.service';
@@ -13,9 +13,18 @@ import { UserRole } from '../users/entities/user.entity';
 export class HealthFacilitiesController {
   constructor(private readonly service: HealthFacilitiesService) {}
 
+  // ── CORS preflight handling ──────────────────────────────────────────────
+
+  @Options('*')
+  @HttpCode(HttpStatus.OK)
+  handleOptions() {
+    return {};
+  }
+
   // ── Public read endpoints — no auth required (reference data for signup) ──
 
   @Get()
+  @HttpCode(HttpStatus.OK)
   findAll(
     @Query('district') district?: string,
     @Query('facilityType') facilityType?: string,

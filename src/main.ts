@@ -30,8 +30,8 @@ async function bootstrap() {
         return callback(null, true);
       }
       
-      // Allow Vercel deployments
-      if (origin.includes('vercel.app')) {
+      // Allow Vercel deployments (including the specific deployment URL)
+      if (origin.includes('vercel.app') || origin.includes('safe-mother-malawi')) {
         return callback(null, true);
       }
       
@@ -39,6 +39,8 @@ async function bootstrap() {
       const allowedOrigins = [
         'https://safemothermalawi-silk.vercel.app',
         'https://safemothermalawi.vercel.app',
+        'https://safe-mother-malawi-elv2sx4cffotkh1xrjjj1cqvcbsd.vercel.app',
+        'https://safe-mother-malawi.vercel.app',
       ];
       
       if (allowedOrigins.includes(origin)) {
@@ -50,6 +52,8 @@ async function bootstrap() {
         return callback(null, true);
       }
       
+      // Log rejected origins for debugging
+      console.log('CORS rejected origin:', origin);
       callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],

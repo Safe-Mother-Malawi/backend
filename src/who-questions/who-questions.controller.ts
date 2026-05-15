@@ -50,6 +50,7 @@ export class WhoQuestionsController {
   /**
    * POST /who/assessment
    * Submit YES/NO answers, get score + risk level back.
+   * Now includes rule-based critical symptom override logic.
    */
   @Post('assessment')
   async submitAssessment(
@@ -66,11 +67,17 @@ export class WhoQuestionsController {
         ? 'Moderate Risk'
         : 'Low Risk';
 
-    const message = result.riskLevel === 'HIGH'
+    // Enhanced message with critical symptom information
+    let message = result.riskLevel === 'HIGH'
       ? 'URGENT: Your symptoms require immediate medical attention. Go to the nearest hospital now or call 116.'
       : result.riskLevel === 'MEDIUM'
         ? 'Some symptoms require monitoring. Please contact your clinician within 24–48 hours.'
         : 'You appear to be in good health. Continue your regular care visits and maintain a healthy lifestyle.';
+
+    // Add critical symptom override information to message
+    if (result.riskOverride) {
+      message = `🚨 CRITICAL ALERT: ${result.riskOverride}\n\n${message}`;
+    }
 
     return {
       stage,
@@ -80,6 +87,10 @@ export class WhoQuestionsController {
       riskLevel:    riskLevelLabel,
       message,
       answeredQuestions: result.answeredQuestions,
+      // New fields for rule-based logic
+      criticalSymptoms: result.criticalSymptoms,
+      riskOverride: result.riskOverride,
+      algorithmScore: result.percentage, // Original algorithm score for transparency
     };
   }
 

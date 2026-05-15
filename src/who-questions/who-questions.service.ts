@@ -43,7 +43,7 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
     return ageInDays <= 7 ? 'early_neonatal' : 'late_neonatal';
   }
 
-  /** Compute WHO score from YES/NO answers */
+  /** Compute WHO score from YES/NO answers with rule-based critical symptom override */
   async computeScore(
     stage: string,
     answers: { questionId: number; value: 0 | 1 }[],
@@ -53,6 +53,8 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
     percentage: number;
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
     answeredQuestions: { question: string; answer: string; weight: number; contributed: number }[];
+    criticalSymptoms?: string[]; // New: List of critical symptoms detected
+    riskOverride?: string; // New: Reason for risk override
   }> {
     const questions = await this.getByStage(stage);
     const qMap = new Map(questions.map(q => [q.id, q]));
@@ -60,6 +62,7 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
     let score = 0;
     const maxScore = questions.reduce((s, q) => s + q.weight, 0);
     const answeredQuestions: { question: string; answer: string; weight: number; contributed: number }[] = [];
+    const criticalSymptoms: string[] = [];
 
     for (const ans of answers) {
       const q = qMap.get(ans.questionId);
@@ -72,14 +75,38 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
         weight:      q.weight,
         contributed,
       });
+
+      // 🚨 RULE-BASED LOGIC: Check for critical symptoms
+      if (ans.value === 1 && q.severityTag === 'HIGH') {
+        criticalSymptoms.push(q.questionText);
+      }
     }
 
     const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
-    let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
-    if (percentage >= 70)      riskLevel = 'HIGH';
-    else if (percentage >= 40) riskLevel = 'MEDIUM';
-    else                       riskLevel = 'LOW';
+    
+    // Calculate algorithm-based risk level
+    let algorithmRiskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+    if (percentage >= 70)      algorithmRiskLevel = 'HIGH';
+    else if (percentage >= 40) algorithmRiskLevel = 'MEDIUM';
+    else                       algorithmRiskLevel = 'LOW';
 
-    return { score, maxScore, percentage: Math.round(percentage * 10) / 10, riskLevel, answeredQuestions };
+    // 🚨 CRITICAL SYMPTOM OVERRIDE: Any HIGH severity symptom = HIGH RISK
+    let finalRiskLevel = algorithmRiskLevel;
+    let riskOverride: string | undefined;
+
+    if (criticalSymptoms.length > 0) {
+      finalRiskLevel = 'HIGH';
+      riskOverride = `Critical symptom detected: ${criticalSymptoms.join(', ')}`;
+    }
+
+    return { 
+      score, 
+      maxScore, 
+      percentage: Math.round(percentage * 10) / 10, 
+      riskLevel: finalRiskLevel, 
+      answeredQuestions,
+      criticalSymptoms: criticalSymptoms.length > 0 ? criticalSymptoms : undefined,
+      riskOverride
+    };
   }
 }

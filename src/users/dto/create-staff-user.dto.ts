@@ -65,3 +65,28 @@ export class UpdateStaffUserDto {
   @IsEnum([UserRole.ADMIN, UserRole.DHO, UserRole.CLINICIAN])
   role?: UserRole;
 }
+
+// ── Mobile user update DTO ────────────────────────────────────────────────────
+export class UpdateMobileUserDto {
+  @IsOptional() @IsString() fullName?: string;
+  @IsOptional() @IsEmail() email?: string;
+  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() age?: string;
+  @IsOptional() @IsString() nationality?: string;
+  @IsOptional() @IsString() region?: string;
+  @IsOptional() @IsString() zone?: string;
+  @IsOptional() @IsString() district?: string;
+  @IsOptional() @IsString() facilityName?: string;
+
+  // Prenatal fields
+  @IsOptional() @IsString() pregnancyMonths?: string;
+  @IsOptional() @IsString() pregnancyWeeks?: string;
+  @IsOptional() @IsString() expectedDeliveryDate?: string;
+  @IsOptional() @IsString() lmpDate?: string;
+
+  // Neonatal fields
+  @IsOptional() @IsString() babyName?: string;
+  @IsOptional() @IsString() babyDob?: string;
+  @IsOptional() @IsString() babyGender?: string;
+  @IsOptional() @IsString() babyBirthWeight?: string;
+}

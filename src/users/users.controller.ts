@@ -3,12 +3,12 @@ import {
   UseGuards, HttpCode, HttpStatus, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateDhoDto, CreateClinicianDto, UpdateStaffUserDto } from './dto/create-staff-user.dto';
+import { CreateDhoDto, CreateClinicianDto, UpdateStaffUserDto, UpdateMobileUserDto } from './dto/create-staff-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { User, UserRole } from './entities/user.entity';
+import { User, UserRole, MOBILE_ROLES } from './entities/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ActivityAction } from '../activity-log/entities/activity-log.entity';
 
@@ -215,7 +215,7 @@ export class UsersController {
 
   // ── PATCH /users/:id ──────────────────────────────────────────────────────
   /**
-   * Admin → can update any staff account.
+   * Admin → can update any user account (staff or mobile).
    * DHO   → can only update clinicians in their district.
    *         DHO cannot change a clinician's role or move them to another district.
    */
@@ -223,37 +223,67 @@ export class UsersController {
   @Roles(UserRole.ADMIN, UserRole.DHO)
   async update(
     @Param('id') id: string,
-    @Body() dto: UpdateStaffUserDto,
+    @Body() dto: UpdateStaffUserDto | UpdateMobileUserDto,
     @CurrentUser() actor: User,
   ) {
+    // First, get the target user to determine if it's a mobile user
+    const targetUser = await this.usersService.findByIdOrThrow(id);
+    const isMobileUser = MOBILE_ROLES.includes(targetUser.role);
+    
     if (actor.role === UserRole.DHO) {
+      // DHO scope validation
+      if (isMobileUser) {
+        throw new ForbiddenException('DHOs cannot manage mobile users (prenatal/neonatal).');
+      }
+      
       await this.assertDhoScope(actor, id);
 
-      // DHO cannot change role or district
-      if (dto.role && dto.role !== UserRole.CLINICIAN) {
+      // DHO cannot change role or district for staff users
+      if ('role' in dto && dto.role && dto.role !== UserRole.CLINICIAN) {
         throw new ForbiddenException('DHOs cannot change a clinician\'s role.');
       }
-      if (dto.district && dto.district !== actor.district) {
+      if ('district' in dto && dto.district && dto.district !== actor.district) {
         throw new ForbiddenException('DHOs cannot move clinicians to a different district.');
       }
       // Lock district to DHO's district
-      dto.district = actor.district ?? dto.district;
-      dto.role = undefined; // prevent role change
+      if ('district' in dto) {
+        dto.district = actor.district ?? dto.district;
+      }
+      if ('role' in dto) {
+        dto.role = undefined; // prevent role change
+      }
     }
 
+    // Update the user with appropriate fields based on user type
     const user = await this.usersService.updateUser(id, {
       fullName: dto.fullName,
       email: dto.email,
       phone: dto.phone,
       district: dto.district,
-      facility: dto.facility,
-      role: dto.role,
+      ...(isMobileUser && 'age' in dto ? { age: dto.age } : {}),
+      ...(isMobileUser && 'nationality' in dto ? { nationality: dto.nationality } : {}),
+      ...(isMobileUser && 'region' in dto ? { region: dto.region } : {}),
+      ...(isMobileUser && 'zone' in dto ? { zone: dto.zone } : {}),
+      ...(isMobileUser && 'facilityName' in dto ? { facilityName: dto.facilityName } : {}),
+      // Prenatal fields
+      ...(isMobileUser && targetUser.role === UserRole.PRENATAL && 'pregnancyMonths' in dto ? { pregnancyMonths: dto.pregnancyMonths } : {}),
+      ...(isMobileUser && targetUser.role === UserRole.PRENATAL && 'pregnancyWeeks' in dto ? { pregnancyWeeks: dto.pregnancyWeeks } : {}),
+      ...(isMobileUser && targetUser.role === UserRole.PRENATAL && 'expectedDeliveryDate' in dto ? { expectedDeliveryDate: dto.expectedDeliveryDate } : {}),
+      ...(isMobileUser && targetUser.role === UserRole.PRENATAL && 'lmpDate' in dto ? { lmpDate: dto.lmpDate } : {}),
+      // Neonatal fields
+      ...(isMobileUser && targetUser.role === UserRole.NEONATAL && 'babyName' in dto ? { babyName: dto.babyName } : {}),
+      ...(isMobileUser && targetUser.role === UserRole.NEONATAL && 'babyDob' in dto ? { babyDob: dto.babyDob } : {}),
+      ...(isMobileUser && targetUser.role === UserRole.NEONATAL && 'babyGender' in dto ? { babyGender: dto.babyGender } : {}),
+      ...(isMobileUser && targetUser.role === UserRole.NEONATAL && 'babyBirthWeight' in dto ? { babyBirthWeight: dto.babyBirthWeight } : {}),
+      // Staff-specific fields
+      ...(!isMobileUser && 'facility' in dto ? { facility: dto.facility } : {}),
+      ...(!isMobileUser && 'role' in dto ? { role: dto.role } : {}),
     });
 
     await this.activityLog.log({
       action: ActivityAction.USER_ACTIVATED,
       actorId: actor.id,
-      description: `${actor.role.toUpperCase()} updated user ${user.fullName}`,
+      description: `${actor.role.toUpperCase()} updated ${isMobileUser ? 'mobile' : 'staff'} user ${user.fullName}`,
       resourceType: 'user',
       resourceId: id,
     });

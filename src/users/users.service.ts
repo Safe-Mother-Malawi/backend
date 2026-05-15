@@ -133,16 +133,50 @@ export class UsersService {
     fullName?: string;
     email?: string;
     phone?: string;
+    age?: string;
+    nationality?: string;
     region?: string;
     zone?: string;
     district?: string;
     facility?: string;
+    facilityName?: string;
     role?: UserRole;
+    // Prenatal fields
+    pregnancyMonths?: string;
+    pregnancyWeeks?: string;
+    expectedDeliveryDate?: string;
+    lmpDate?: string;
+    // Neonatal fields
+    babyName?: string;
+    babyDob?: string;
+    babyGender?: string;
+    babyBirthWeight?: string;
   }): Promise<User> {
-    // Map 'facility' to the entity column name 'facilityName'
+    // Map 'facility' to the entity column name 'facilityName' if provided
     const { facility, ...rest } = data;
     const update: Partial<User> = { ...rest };
     if (facility !== undefined) update.facilityName = facility;
+    
+    // Validate phone uniqueness if phone is being updated
+    if (data.phone) {
+      const existingPhone = await this.usersRepo.findOne({ 
+        where: { phone: data.phone } 
+      });
+      if (existingPhone && existingPhone.id !== id) {
+        throw new ConflictException('An account with this phone number already exists.');
+      }
+    }
+    
+    // Validate email uniqueness if email is being updated
+    if (data.email) {
+      const existingEmail = await this.usersRepo.findOne({ 
+        where: { email: data.email } 
+      });
+      if (existingEmail && existingEmail.id !== id) {
+        throw new ConflictException('An account with this email already exists.');
+      }
+    }
+    
     await this.usersRepo.update(id, update);
     return this.findByIdOrThrow(id);
   }

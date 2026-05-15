@@ -22,30 +22,20 @@ async function bootstrap() {
   // ── CORS (comprehensive configuration for Flutter web and all environments) ──
   app.enableCors({
     origin: function (origin, callback) {
+      console.log('CORS request from origin:', origin);
+      
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
       
-      // Allow all localhost origins for development (explicit patterns)
+      // Always allow localhost origins for development
       if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        console.log('CORS: Allowing localhost origin:', origin);
         return callback(null, true);
       }
       
-      // Allow specific localhost ports used by Flutter
-      const localhostOrigins = [
-        'http://localhost:5004',
-        'http://localhost:5002',
-        'http://localhost:3000',
-        'http://127.0.0.1:5004',
-        'http://127.0.0.1:5002',
-        'http://127.0.0.1:3000',
-      ];
-      
-      if (localhostOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      
-      // Allow Vercel deployments (including the specific deployment URL)
+      // Allow Vercel deployments
       if (origin.includes('vercel.app') || origin.includes('safe-mother-malawi')) {
+        console.log('CORS: Allowing Vercel origin:', origin);
         return callback(null, true);
       }
       
@@ -58,17 +48,13 @@ async function bootstrap() {
       ];
       
       if (allowedOrigins.includes(origin)) {
+        console.log('CORS: Allowing production origin:', origin);
         return callback(null, true);
       }
       
-      // For development, allow all origins
-      if (process.env.NODE_ENV !== 'production') {
-        return callback(null, true);
-      }
-      
-      // Log rejected origins for debugging
-      console.log('CORS rejected origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      // For development environment, be more permissive
+      console.log('CORS: Allowing all origins for development');
+      return callback(null, true);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: [

@@ -221,7 +221,7 @@ export class RiskEngineService {
       [RiskCategory.HIGH]:
         'Your symptoms indicate a high-risk condition. Please visit your health centre today.',
       [RiskCategory.CRITICAL]:
-        'URGENT: Your symptoms require immediate medical attention. Go to the nearest hospital now or call 116.',
+        'URGENT: Your symptoms require immediate medical attention. Go to the nearest hospital now or call 700.',
     };
 
     const recommendations: Record<RiskCategory, string[]> = {
@@ -243,8 +243,8 @@ export class RiskEngineService {
       ],
       [RiskCategory.CRITICAL]: [
         'Go to the nearest hospital IMMEDIATELY',
-        'Call the emergency hotline: 116',
-        'Call an ambulance: 998',
+        'Call the emergency hotline: 700',
+        'Call an ambulance: 700',
         'Do not wait — this is a medical emergency',
         ...(flags.length > 0 ? [`Triggered alerts: ${flags.join(', ')}`] : []),
       ],

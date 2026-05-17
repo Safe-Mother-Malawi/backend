@@ -84,19 +84,8 @@ export class AlertsService {
     ) {
       const smsMessage =
         data.severity === AlertSeverity.CRITICAL
-          ? `URGENT - Safe Mother Malawi: ${data.reason}. Please go to the nearest hospital immediately or call 998.`
+          ? `URGENT - Safe Mother Malawi: ${data.reason}. Please go to the nearest hospital immediately or call 700.`
           : `Safe Mother Malawi Alert: ${data.reason}. Please visit your health centre today.`;
-
-      // SMS and outbound call functionality removed (Africa's Talking removed from project)
-      // this.ivrService.sendSms(data.contact, smsMessage).catch((err: unknown) =>
-      //   this.logger.error(`IVR SMS failed for alert ${saved.id}`, err instanceof Error ? err.message : String(err)),
-      // );
-      //
-      // if (data.severity === AlertSeverity.CRITICAL) {
-      //   this.ivrService.makeOutboundCall({ to: data.contact }).catch((err: unknown) =>
-      //     this.logger.error(`IVR outbound call failed for alert ${saved.id}`, err instanceof Error ? err.message : String(err)),
-      //   );
-      // }
     }
 
     return saved;

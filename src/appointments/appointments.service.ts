@@ -52,17 +52,6 @@ export class AppointmentsService {
     await this._notifyPatient(saved);
 
     // SMS reminder to the patient if a contact number is provided
-    // Note: SMS functionality removed (Africa's Talking removed from project)
-    // if (dto.patientContact) {
-    //   const smsText =
-    //     `Safe Mother Malawi: Your appointment is confirmed for ${dto.date}` +
-    //     `${dto.time ? ' at ' + dto.time : ''}. Please bring your health card.`;
-    //
-    //   this.ivrService.sendSms(dto.patientContact, smsText).catch((err: unknown) =>
-    //     this.logger.error(`Appointment SMS failed for appt ${saved.id}`, err instanceof Error ? err.message : String(err)),
-    //   );
-    // }
-
     return saved;
   }
 

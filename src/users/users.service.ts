@@ -322,5 +322,17 @@ export class UsersService {
     }
     await this.updatePassword(userId, newPassword);
   }
+
+  // ── Profile Photo Management ──────────────────────────────────────────────
+
+  async updateProfilePhoto(userId: string, photoUrl: string | null): Promise<User> {
+    await this.usersRepo.update(userId, { profilePhotoUrl: photoUrl });
+    return this.findByIdOrThrow(userId);
+  }
+
+  async getProfilePhoto(userId: string): Promise<string | null> {
+    const user = await this.findByIdOrThrow(userId);
+    return user.profilePhotoUrl;
+  }
 }
 

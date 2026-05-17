@@ -67,16 +67,17 @@ export class WhoQuestionsController {
         ? 'Moderate Risk'
         : 'Low Risk';
 
-    // Enhanced message with critical symptom information
+    // Enhanced message - clean message without critical alert prefix
     let message = result.riskLevel === 'HIGH'
-      ? 'URGENT: Your symptoms require immediate medical attention. Go to the nearest hospital now or call 116.'
+      ? 'URGENT: Your symptoms require immediate medical attention. Go to the nearest hospital now or call 700.'
       : result.riskLevel === 'MEDIUM'
         ? 'Some symptoms require monitoring. Please contact your clinician within 24–48 hours.'
         : 'You appear to be in good health. Continue your regular care visits and maintain a healthy lifestyle.';
 
-    // Add critical symptom override information to message
-    if (result.riskOverride) {
-      message = `🚨 CRITICAL ALERT: ${result.riskOverride}\n\n${message}`;
+    // Ensure no critical alert is prepended to the message
+    // Remove any existing critical alert prefix if present
+    if (message.includes('🚨 CRITICAL ALERT:')) {
+      message = message.replace(/🚨 CRITICAL ALERT:.*?\n\n/g, '');
     }
 
     return {
@@ -89,7 +90,7 @@ export class WhoQuestionsController {
       answeredQuestions: result.answeredQuestions,
       // New fields for rule-based logic
       criticalSymptoms: result.criticalSymptoms,
-      riskOverride: result.riskOverride,
+      // riskOverride: result.riskOverride, // Removed to prevent critical alert display
       algorithmScore: result.percentage, // Original algorithm score for transparency
     };
   }

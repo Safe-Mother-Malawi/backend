@@ -51,6 +51,9 @@ export class User {
   nationality: string | null;
 
   @Column({ type: 'varchar', nullable: true })
+  profilePhotoUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
   region: string | null;
 
   @Column({ type: 'varchar', nullable: true })

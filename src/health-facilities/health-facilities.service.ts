@@ -145,7 +145,7 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
   /** Delete a facility */
   async delete(id: string): Promise<boolean> {
     const result = await this.repo.delete(id);
-    return result.affected > 0;
+    return (result.affected ?? 0) > 0;
   }
 
   /** Get all distinct facility types */
@@ -241,3 +241,4 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
       .getRawMany<{ managingAuthority: string }>();
     return rows.map(r => r.managingAuthority).filter(Boolean);
   }
+}

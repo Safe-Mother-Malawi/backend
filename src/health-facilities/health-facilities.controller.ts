@@ -120,6 +120,8 @@ export class HealthFacilitiesController {
     return this.service.create(body);
   }
 
+  // ── Get facility by ID (must come after specific routes) ──────────────────
+
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findById(@Param('id') id: string) {

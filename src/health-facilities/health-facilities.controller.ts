@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Body, Query, Options,
-  UseGuards, HttpCode, HttpStatus,
+  Controller, Get, Post, Body, Query, Options, Param, Put, Delete,
+  UseGuards, HttpCode, HttpStatus, NotFoundException,
 } from '@nestjs/common';
 import { HealthFacilitiesService } from './health-facilities.service';
 import { HealthFacility } from './entities/health-facility.entity';
@@ -70,6 +70,16 @@ export class HealthFacilitiesController {
     return this.service.getFacilityByName(name);
   }
 
+  @Get('facility-types')
+  getFacilityTypes() {
+    return this.service.getFacilityTypes();
+  }
+
+  @Get('managing-authorities')
+  getManagingAuthorities() {
+    return this.service.getManagingAuthorities();
+  }
+
   // ── Protected write endpoint — admin only ─────────────────────────────────
 
   @Post()
@@ -78,5 +88,39 @@ export class HealthFacilitiesController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() body: Partial<HealthFacility>) {
     return this.service.create(body);
+  }
+
+  @Get(':id')
+  @HttpCode(HttpStatus.OK)
+  async findById(@Param('id') id: string) {
+    const facility = await this.service.findById(id);
+    if (!facility) {
+      throw new NotFoundException(`Health facility with ID ${id} not found`);
+    }
+    return facility;
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async update(@Param('id') id: string, @Body() body: Partial<HealthFacility>) {
+    const facility = await this.service.update(id, body);
+    if (!facility) {
+      throw new NotFoundException(`Health facility with ID ${id} not found`);
+    }
+    return facility;
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async delete(@Param('id') id: string) {
+    const result = await this.service.delete(id);
+    if (!result) {
+      throw new NotFoundException(`Health facility with ID ${id} not found`);
+    }
+    return { message: 'Health facility deleted successfully' };
   }
 }

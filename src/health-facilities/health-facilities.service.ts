@@ -128,4 +128,44 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
     const facility = this.repo.create(data);
     return this.repo.save(facility);
   }
-}
+
+  /** Find facility by ID */
+  async findById(id: string): Promise<HealthFacility | null> {
+    return this.repo.findOne({ where: { id } });
+  }
+
+  /** Update a facility */
+  async update(id: string, data: Partial<HealthFacility>): Promise<HealthFacility | null> {
+    const facility = await this.repo.findOne({ where: { id } });
+    if (!facility) return null;
+    Object.assign(facility, data);
+    return this.repo.save(facility);
+  }
+
+  /** Delete a facility */
+  async delete(id: string): Promise<boolean> {
+    const result = await this.repo.delete(id);
+    return result.affected > 0;
+  }
+
+  /** Get all distinct facility types */
+  async getFacilityTypes(): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.facilityType', 'facilityType')
+      .where('f.facilityType IS NOT NULL')
+      .orderBy('f.facilityType', 'ASC')
+      .getRawMany<{ facilityType: string }>();
+    return rows.map(r => r.facilityType).filter(Boolean);
+  }
+
+  /** Get all distinct managing authorities */
+  async getManagingAuthorities(): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.managingAuthority', 'managingAuthority')
+      .where('f.managingAuthority IS NOT NULL')
+      .orderBy('f.managingAuthority', 'ASC')
+      .getRawMany<{ managingAuthority: string }>();
+    return rows.map(r => r.managingAuthority).filter(Boolean);
+  }

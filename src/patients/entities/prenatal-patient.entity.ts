@@ -14,11 +14,17 @@ export class PrenatalPatient {
   @Column({ type: 'varchar', nullable: true }) age: string | null;
   @Column({ type: 'varchar', nullable: true }) nationality: string | null;
   @Column({ type: 'varchar', nullable: true }) district: string | null;
+  @Column({ type: 'varchar', nullable: true }) village: string | null;
   @Column({ type: 'varchar', nullable: true, name: 'healthCentre' }) facilityName: string | null;
   @Column({ type: 'varchar', nullable: true }) lmpDate: string | null;
   @Column({ type: 'varchar', nullable: true }) pregnancyMonths: string | null;
   @Column({ type: 'varchar', nullable: true }) pregnancyWeeks: string | null;
   @Column({ type: 'varchar', nullable: true }) expectedDeliveryDate: string | null;
+
+  @Column({ type: 'int', nullable: true }) gravida: number | null;
+  @Column({ type: 'int', nullable: true }) parity: number | null;
+  @Column({ type: 'jsonb', nullable: true }) existingConditions: string[] | null;
+  @Column({ type: 'varchar', nullable: true }) emergencyContact: string | null;
 
   @Column({ type: 'varchar', nullable: true }) registeredById: string | null;
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

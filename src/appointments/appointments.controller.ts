@@ -54,11 +54,8 @@ export class AppointmentsController {
    */
   @Get('mine')
   @Roles(UserRole.PRENATAL, UserRole.NEONATAL)
-  findMine(
-    @Query('prenatalPatientId') prenatalId?: string,
-    @Query('neonatalPatientId') neonatalId?: string,
-  ) {
-    return this.service.findByPatient(prenatalId, neonatalId);
+  findMine(@CurrentUser() user: User) {
+    return this.service.findMyAppointments(user.id, user.role);
   }
 
   @Get('patient')
@@ -93,5 +90,14 @@ export class AppointmentsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   delete(@Param('id') id: string) {
     return this.service.delete(id);
+  }
+
+  /** POST /appointments/:id/remind — manually send a reminder for an appointment */
+  @Post(':id/remind')
+  @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
+  @HttpCode(HttpStatus.OK)
+  async sendReminder(@Param('id') id: string) {
+    await this.service.sendManualReminder(id);
+    return { message: 'Reminder sent successfully.' };
   }
 }

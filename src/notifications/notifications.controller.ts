@@ -9,6 +9,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User, UserRole } from '../users/entities/user.entity';
+import { NotificationType } from './entities/notification.entity';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('notifications')
@@ -43,5 +44,28 @@ export class NotificationsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   delete(@Param('id') id: string, @CurrentUser() user: User) {
     return this.service.delete(id, user.id);
+  }
+
+  /**
+   * Emergency Alert Endpoint (from patient app)
+   */
+  @Post('emergency')
+  @Roles(UserRole.PRENATAL, UserRole.NEONATAL)
+  @HttpCode(HttpStatus.OK)
+  async triggerEmergency(
+    @CurrentUser() user: User,
+    @Body() dto: { latitude?: number; longitude?: number; details?: string },
+  ) {
+    const locString = (dto.latitude && dto.longitude) 
+        ? `Location: ${dto.latitude}, ${dto.longitude}` 
+        : 'Location: Not provided';
+        
+    const bodyText = `EMERGENCY ALERT triggered by ${user.fullName} (${user.phone}).\n${locString}\nDetails: ${dto.details || 'None'}`;
+    
+    // Notify all clinicians and DHOs
+    await this.service.notifyClinicians('🚨 EMERGENCY SOS', bodyText, NotificationType.ALERT);
+    await this.service.notifyDHOs('🚨 EMERGENCY SOS', bodyText, NotificationType.ALERT);
+
+    return { success: true, message: 'Emergency alert dispatched to medical team.' };
   }
 }

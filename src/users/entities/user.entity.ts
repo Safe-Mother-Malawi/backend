@@ -79,6 +79,21 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   lmpDate: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  village: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  gravida: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  parity: number | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  existingConditions: string[] | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  emergencyContact: string | null;
+
   // ── Neonatal fields ───────────────────────────────────────────────────────
 
   @Column({ type: 'varchar', nullable: true })

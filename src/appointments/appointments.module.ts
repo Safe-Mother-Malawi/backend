@@ -11,11 +11,14 @@ import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 import { AnalyticsModule } from '../analytics/analytics.module';
 
+import { RiskEngineModule } from '../risk-engine/risk-engine.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Appointment, PrenatalPatient, NeonatalPatient]),
     NotificationsModule,
     UsersModule,
+    RiskEngineModule,
     forwardRef(() => AnalyticsModule),
   ],
   providers: [AppointmentsService, ANCTrackingService],

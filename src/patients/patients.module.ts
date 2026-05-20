@@ -7,7 +7,9 @@ import { PatientsController } from './patients.controller';
 import { TrackingModule } from '../tracking/tracking.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AppointmentsModule } from '../appointments/appointments.module';
 import { UsersModule } from '../users/users.module';
+import { forwardRef } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -16,6 +18,7 @@ import { UsersModule } from '../users/users.module';
     ActivityLogModule,
     NotificationsModule,
     UsersModule,
+    forwardRef(() => AppointmentsModule),
   ],
   providers: [PatientsService],
   controllers: [PatientsController],

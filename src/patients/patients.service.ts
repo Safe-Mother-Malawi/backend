@@ -12,6 +12,8 @@ import { ActivityAction } from '../activity-log/entities/activity-log.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { UsersService } from '../users/users.service';
+import { AppointmentsService } from '../appointments/appointments.service';
+import { forwardRef, Inject } from '@nestjs/common';
 
 @Injectable()
 export class PatientsService {
@@ -24,6 +26,8 @@ export class PatientsService {
     private readonly activityLog: ActivityLogService,
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
+    @Inject(forwardRef(() => AppointmentsService))
+    private readonly appointmentsService: AppointmentsService,
   ) {}
 
   // ── Phone-based linking ───────────────────────────────────────────────────
@@ -65,6 +69,11 @@ export class PatientsService {
           pregnancyWeeks:      user.pregnancyWeeks,
           expectedDeliveryDate: user.expectedDeliveryDate,
           lmpDate:             user.lmpDate,
+          village:             user.village,
+          gravida:             user.gravida,
+          parity:              user.parity,
+          existingConditions:  user.existingConditions,
+          emergencyContact:    user.emergencyContact,
           userId:              user.id,
           registeredById:      null, // self-registered
         });
@@ -77,6 +86,16 @@ export class PatientsService {
           resourceId: saved.id,
           meta: { district: user.district, facilityName: user.facilityName },
         });
+
+        // Schedule initial ANC visit
+        if (user.lmpDate) {
+          await this.appointmentsService.scheduleInitialAnc(
+            saved.id,
+            user.lmpDate,
+            saved.fullName,
+            saved.district || undefined
+          );
+        }
       }
     }
 
@@ -103,7 +122,9 @@ export class PatientsService {
           motherAge:       user.age,
           nationality:     user.nationality,
           district:        user.district,
+          village:         user.village,
           facilityName:    user.facilityName,
+          emergencyContact: user.emergencyContact,
           babyName:        user.babyName ?? 'Unknown',
           babyDob:         user.babyDob ?? '',
           babyGender:      user.babyGender,
@@ -183,6 +204,11 @@ export class PatientsService {
         pregnancyWeeks:   dto.pregnancyWeeks,
         expectedDeliveryDate: dto.expectedDeliveryDate,
         lmpDate:          dto.lmpDate,
+        village:          dto.village,
+        gravida:          dto.gravida,
+        parity:           dto.parity,
+        existingConditions: dto.existingConditions,
+        emergencyContact: dto.emergencyContact,
         patientId:        saved.id,
         patientRepo:      this.prenatalRepo as Repository<PrenatalPatient | NeonatalPatient>,
         userIdField:      'userId',
@@ -203,6 +229,16 @@ export class PatientsService {
       `${saved.fullName} has been registered as a prenatal patient in ${saved.district ?? 'unknown district'}.`,
       registeredBy.id,
     );
+
+    // Schedule initial ANC visit
+    if (dto.lmpDate) {
+      await this.appointmentsService.scheduleInitialAnc(
+        saved.id,
+        dto.lmpDate,
+        saved.fullName,
+        saved.district || undefined
+      );
+    }
 
     return saved;
   }
@@ -283,13 +319,25 @@ export class PatientsService {
       motherEmail: dto.motherEmail || null,
       registeredById: registeredBy.id,
     });
+
+    // 1. DELIVERY FLOW: Transition Prenatal Mother to Neonatal
+    let linkedUserId: string | null = null;
+    const existingUser = await this.usersService.findByEmailOrPhone(dto.motherPhone);
+    if (existingUser) {
+      if (existingUser.role === UserRole.PRENATAL) {
+        await this.usersService.updateUser(existingUser.id, { role: UserRole.NEONATAL });
+      }
+      linkedUserId = existingUser.id;
+      patient.userId = linkedUserId; // Link baby to mother's account
+    }
+
     const saved = await this.neonatalRepo.save(patient);
 
-    // Auto-seed the Malawi EPI vaccine schedule
+    // 2. Auto-seed the Malawi EPI vaccine schedule (Neonatal schedule created)
     const babyDob = new Date(dto.babyDob);
     await this.trackingService.seedVaccines(saved.id, babyDob);
 
-    // If a password was provided, create a linked mobile User account
+    // 3. Handle mobile account creation/password update
     if (dto.password) {
       await this._createOrUpdateMobileUser({
         phone:        dto.motherPhone,
@@ -298,7 +346,9 @@ export class PatientsService {
         role:         UserRole.NEONATAL,
         fullName:     dto.motherName,
         district:     dto.district,
+        village:      dto.village,
         facilityName: dto.facilityName,
+        emergencyContact: dto.emergencyContact,
         babyName:     dto.babyName,
         babyDob:      dto.babyDob,
         babyGender:   dto.babyGender,
@@ -307,6 +357,20 @@ export class PatientsService {
         patientRepo:  this.neonatalRepo as Repository<PrenatalPatient | NeonatalPatient>,
         userIdField:  'userId',
       });
+      if (!linkedUserId) {
+        const newUser = await this.usersService.findByEmailOrPhone(dto.motherPhone);
+        linkedUserId = newUser?.id || null;
+      }
+    }
+
+    // 4. Notifications activated
+    if (linkedUserId) {
+      await this.notificationsService.broadcast(
+        [linkedUserId],
+        'Congratulations on your delivery! 👶',
+        `Your baby ${saved.babyName}'s neonatal record and vaccination schedule have been created. You can now track upcoming immunizations in the app.`,
+        NotificationType.INFO,
+      );
     }
 
     await this.activityLog.log({
@@ -449,6 +513,11 @@ export class PatientsService {
     pregnancyWeeks?: string;
     expectedDeliveryDate?: string;
     lmpDate?: string;
+    village?: string;
+    gravida?: number;
+    parity?: number;
+    existingConditions?: string[];
+    emergencyContact?: string;
     babyName?: string;
     babyDob?: string;
     babyGender?: string;
@@ -479,6 +548,11 @@ export class PatientsService {
         pregnancyWeeks:      opts.pregnancyWeeks,
         expectedDeliveryDate: opts.expectedDeliveryDate,
         lmpDate:             opts.lmpDate,
+        village:             opts.village,
+        gravida:             opts.gravida,
+        parity:              opts.parity,
+        existingConditions:  opts.existingConditions,
+        emergencyContact:    opts.emergencyContact,
         babyName:            opts.babyName,
         babyDob:             opts.babyDob,
         babyGender:          opts.babyGender,

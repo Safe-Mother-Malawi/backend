@@ -15,6 +15,7 @@ import { ActivityAction } from '../activity-log/entities/activity-log.entity';
 import { UsersService } from '../users/users.service';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
+import { EventsGateway, SocketEvent } from '../events/events.gateway';
 
 @Injectable()
 export class RiskAssessmentsService {
@@ -29,6 +30,7 @@ export class RiskAssessmentsService {
     private readonly notificationsService: NotificationsService,
     private readonly activityLog: ActivityLogService,
     private readonly usersService: UsersService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   // ── Risk level derivation ─────────────────────────────────────────────────
@@ -68,6 +70,13 @@ export class RiskAssessmentsService {
       submittedById: submittedBy.id,
     });
     const saved = await this.repo.save(record);
+
+    // Broadcast real-time update to all connected dashboards
+    this.eventsGateway.emit(SocketEvent.ANALYTICS_UPDATED, {
+      type: 'risk_assessment',
+      riskLevel,
+      patientType: dto.patientType,
+    });
 
     // ── Activity log ──────────────────────────────────────────────────────
     await this.activityLog.log({

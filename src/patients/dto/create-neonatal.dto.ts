@@ -16,7 +16,9 @@ export class CreateNeonatalDto {
   @IsOptional() @IsString() motherAge?: string;
   @IsOptional() @IsString() nationality?: string;
   @IsOptional() @IsString() district?: string;
+  @IsOptional() @IsString() village?: string;
   @IsOptional() @IsString() facilityName?: string;
+  @IsOptional() @IsString() emergencyContact?: string;
 
   /** Optional — if provided, a mobile User account is created for this patient */
   @IsOptional()

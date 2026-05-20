@@ -65,6 +65,23 @@ export class RegisterDto {
   @IsString()
   lmpDate?: string;
 
+  @IsOptional()
+  @IsString()
+  village?: string;
+
+  @IsOptional()
+  gravida?: number;
+
+  @IsOptional()
+  parity?: number;
+
+  @IsOptional()
+  existingConditions?: string[];
+
+  @IsOptional()
+  @IsString()
+  emergencyContact?: string;
+
   // ── Neonatal ──────────────────────────────────────────────────────────────
 
   @IsOptional()

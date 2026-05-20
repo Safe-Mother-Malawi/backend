@@ -19,7 +19,9 @@ export class NeonatalPatient {
   @Column({ type: 'varchar', nullable: true }) motherAge: string | null;
   @Column({ type: 'varchar', nullable: true }) nationality: string | null;
   @Column({ type: 'varchar', nullable: true }) district: string | null;
+  @Column({ type: 'varchar', nullable: true }) village: string | null;
   @Column({ type: 'varchar', nullable: true, name: 'healthCentre' }) facilityName: string | null;
+  @Column({ type: 'varchar', nullable: true }) emergencyContact: string | null;
 
   @Column({ type: 'varchar', nullable: true }) registeredById: string | null;
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

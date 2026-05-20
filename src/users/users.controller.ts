@@ -2,6 +2,7 @@ import {
   Controller, Get, Post, Patch, Delete, Put, Body, Param, Query,
   UseGuards, HttpCode, HttpStatus, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
+import { IsOptional, IsString } from 'class-validator';
 import { UsersService } from './users.service';
 import { CreateDhoDto, CreateClinicianDto, UpdateStaffUserDto, UpdateMobileUserDto } from './dto/create-staff-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -11,6 +12,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User, UserRole, MOBILE_ROLES } from './entities/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ActivityAction } from '../activity-log/entities/activity-log.entity';
+
+class UpdatePhotoDto {
+  @IsOptional() @IsString() photoBase64?: string; // null to remove
+}
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('users')
@@ -181,7 +186,7 @@ export class UsersController {
    * Endpoint: POST /users/clinician
    */
   @Post('clinician')
-  @Roles(UserRole.DHO)
+  @Roles(UserRole.DHO, UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   async createClinician(@Body() dto: CreateClinicianDto, @CurrentUser() actor: User) {
     // Clinician inherits DHO's district if not explicitly provided
@@ -370,6 +375,32 @@ export class UsersController {
       resourceType: 'user',
       resourceId: id,
     });
+  }
+
+  // ── PATCH /users/me/photo ─────────────────────────────────────────────────
+  /**
+   * Upload or remove profile photo for the current user.
+   * Accepts base64-encoded image string (max ~2MB after encoding).
+   * Pass null/empty to remove the photo.
+   */
+  @Patch('me/photo')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updateMyPhoto(@CurrentUser() user: User, @Body() dto: UpdatePhotoDto) {
+    const photoBase64 = dto.photoBase64?.trim() || null;
+
+    // Validate size — base64 of 2MB image ≈ 2.7MB string
+    if (photoBase64 && photoBase64.length > 3_000_000) {
+      throw new BadRequestException('Photo is too large. Maximum size is 2MB.');
+    }
+
+    // Validate it looks like a base64 data URL
+    if (photoBase64 && !photoBase64.startsWith('data:image/')) {
+      throw new BadRequestException('Invalid image format. Must be a base64 data URL.');
+    }
+
+    const updated = await this.usersService.updateProfilePhoto(user.id, photoBase64);
+    return { profilePhotoUrl: updated.profilePhotoUrl };
   }
 
   // ── GET /users/me/preferences ─────────────────────────────────────────────

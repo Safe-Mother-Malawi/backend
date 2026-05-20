@@ -34,6 +34,11 @@ export class UsersService {
     pregnancyWeeks?: string;
     expectedDeliveryDate?: string;
     lmpDate?: string;
+    village?: string;
+    gravida?: number;
+    parity?: number;
+    existingConditions?: string[];
+    emergencyContact?: string;
     babyName?: string;
     babyDob?: string;
     babyGender?: string;
@@ -80,6 +85,11 @@ export class UsersService {
       pregnancyWeeks: data.pregnancyWeeks || null,
       expectedDeliveryDate: data.expectedDeliveryDate || null,
       lmpDate: data.lmpDate || null,
+      village: data.village || null,
+      gravida: data.gravida || null,
+      parity: data.parity || null,
+      existingConditions: data.existingConditions || null,
+      emergencyContact: data.emergencyContact || null,
       babyName: data.babyName || null,
       babyDob: data.babyDob || null,
       babyGender: data.babyGender || null,
@@ -186,25 +196,22 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await this.usersRepo.update(id, { passwordHash });
 
-    // Notify admins of password change
+    // Notify admins — never include the plain password in notifications
     try {
       if (adminId) {
-        // Admin reset someone's password
         await this.notificationsService.notifyAdmins(
           'Admin Password Reset',
-          `Admin has reset password for ${user.fullName} (${user.role}). New password: ${newPassword}`,
+          `Admin reset the password for ${user.fullName} (${user.role}).`,
           NotificationType.ALERT,
         );
       } else {
-        // User changed their own password
         await this.notificationsService.notifyAdmins(
           'User Password Change',
-          `${user.fullName} (${user.role}) has changed their password. New password: ${newPassword}`,
+          `${user.fullName} (${user.role}) changed their password.`,
           NotificationType.INFO,
         );
       }
     } catch (error) {
-      // Don't fail the password update if notification fails
       console.error('Failed to notify admins of password change:', error);
     }
   }

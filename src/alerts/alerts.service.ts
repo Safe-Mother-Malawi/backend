@@ -6,6 +6,7 @@ import { CreateAlertDto } from './dto/create-alert.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ActivityAction } from '../activity-log/entities/activity-log.entity';
+import { EventsGateway, SocketEvent } from '../events/events.gateway';
 
 
 @Injectable()
@@ -16,6 +17,7 @@ export class AlertsService {
     @InjectRepository(Alert)
     private readonly repo: Repository<Alert>,
     private readonly activityLog: ActivityLogService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   async create(dto: CreateAlertDto, clinician: User): Promise<Alert> {
@@ -35,6 +37,7 @@ export class AlertsService {
       resourceId: saved.id,
       meta: { severity: dto.severity },
     });
+    this.eventsGateway.emit(SocketEvent.ALERT_CREATED, { severity: saved.severity, district: saved.district });
     return saved;
   }
 
@@ -76,6 +79,9 @@ export class AlertsService {
       resourceId: saved.id,
       meta: { severity: data.severity, auto: true, district: data.district, facilityName: data.facilityName },
     });
+
+    this.eventsGateway.emit(SocketEvent.ALERT_CREATED, { severity: saved.severity, district: saved.district });
+    this.eventsGateway.emit(SocketEvent.ANALYTICS_UPDATED, { type: 'alert' });
 
     // For critical or high alerts, reach the patient via SMS and outbound call
     if (

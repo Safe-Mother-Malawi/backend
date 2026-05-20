@@ -66,6 +66,14 @@ export class Appointment {
   @Column({ type: 'varchar', nullable: true })
   attendanceNotes: string | null; // Notes about attendance/non-attendance
 
+  // Structured ANC visit data (vitals, labs, medications, danger signs)
+  @Column({ type: 'jsonb', nullable: true })
+  ancData: any | null;
+
+  // Risk Engine assessment output for this visit
+  @Column({ type: 'jsonb', nullable: true })
+  riskResult: any | null;
+
   @Column({ type: 'varchar', nullable: true }) prenatalPatientId: string | null;
   @Column({ type: 'varchar', nullable: true }) neonatalPatientId: string | null;
   @Column({ type: 'varchar', nullable: true }) createdById: string | null;

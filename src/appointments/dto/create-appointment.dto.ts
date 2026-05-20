@@ -22,4 +22,7 @@ export class CreateAppointmentDto {
   @IsOptional() @IsString() prenatalPatientId?: string;
   @IsOptional() @IsString() neonatalPatientId?: string;
   @IsOptional() @IsString() clinicianId?: string;
+  
+  @IsOptional()
+  ancData?: any;
 }

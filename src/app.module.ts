@@ -1,6 +1,9 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -21,6 +24,8 @@ import { ReportsModule } from './reports/reports.module';
 import { ContactModule } from './contact/contact.module';
 import { HealthFacilitiesModule } from './health-facilities/health-facilities.module';
 import { WhoQuestionsModule } from './who-questions/who-questions.module';
+import { EventsModule } from './events/events.module';
+import { RemindersModule } from './reminders/reminders.module';
 
 // ── Entities ──────────────────────────────────────────────────────────────────
 import { User } from './users/entities/user.entity';
@@ -46,6 +51,13 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 10,
+    }]),
+
+    ScheduleModule.forRoot(),
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -89,9 +101,14 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
     ContactModule,
     HealthFacilitiesModule,
     WhoQuestionsModule,
+    EventsModule,
+    RemindersModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule implements NestModule {
   constructor(

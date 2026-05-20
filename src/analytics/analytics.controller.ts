@@ -3,7 +3,8 @@ import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../users/entities/user.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { User, UserRole } from '../users/entities/user.entity';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.DHO, UserRole.CLINICIAN)
@@ -61,5 +62,14 @@ export class AnalyticsController {
     return this.service.getANCComplianceSummary(district);
   }
 
-
+  @Get('clinician-dashboard')
+  @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
+  getClinicianDashboard(
+    @CurrentUser() user: User,
+    @Query('clinicianId') clinicianId?: string,
+  ) {
+    const effectiveId = user.role === UserRole.CLINICIAN ? user.id : clinicianId;
+    if (!effectiveId) throw new Error('clinicianId is required for admins');
+    return this.service.getClinicianDashboard(effectiveId);
+  }
 }

@@ -11,6 +11,7 @@ import {
   Options,
 } from '@nestjs/common';
 import { IsOptional, IsString, IsEmail } from 'class-validator';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -31,6 +32,7 @@ class UpdateMeDto {
   @IsOptional() @IsString() facilityName?: string;
 }
 
+@SkipThrottle()
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -54,7 +56,8 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
-  /** POST /auth/login */
+  /** POST /auth/login — rate limited: 10 attempts per minute */
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {

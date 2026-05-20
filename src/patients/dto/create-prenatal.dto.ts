@@ -17,6 +17,12 @@ export class CreatePrenatalDto {
   @IsOptional() @IsString() pregnancyWeeks?: string;
   @IsOptional() @IsString() expectedDeliveryDate?: string;
 
+  @IsOptional() @IsString() village?: string;
+  @IsOptional() gravida?: number;
+  @IsOptional() parity?: number;
+  @IsOptional() existingConditions?: string[];
+  @IsOptional() @IsString() emergencyContact?: string;
+
   /** Optional — if provided, a mobile User account is created for this patient */
   @IsOptional()
   @IsString()

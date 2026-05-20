@@ -335,4 +335,124 @@ export class AnalyticsService {
       };
     }
   }
+
+  /**
+   * Clinician Dashboard - specific operational care metrics for a clinician
+   */
+  async getClinicianDashboard(clinicianId: string) {
+    const allPatients = await this.prenatalRepo.find({ where: { registeredById: clinicianId } });
+    
+    const activePregnancies = allPatients.length;
+
+    const highRiskPregnancies = await this.riskRepo.createQueryBuilder('r')
+      .innerJoin(PrenatalPatient, 'p', 'p.id = r.patientId')
+      .where('p.registeredById = :clinicianId', { clinicianId })
+      .andWhere("r.riskLevel IN ('High Risk', 'Seek Help Immediately')")
+      .getCount();
+
+    const missedVisits = await this.appointmentRepo.count({
+      where: { clinicianId, status: AppointmentStatus.NO_SHOW },
+    });
+
+    const now = new Date();
+    const dueCutoff14 = new Date(); dueCutoff14.setDate(now.getDate() + 14);
+    const dueCutoff7 = new Date(); dueCutoff7.setDate(now.getDate() + 7);
+
+    let dueDeliveries = 0;
+    const nearTermMothers: PrenatalPatient[] = [];
+
+    allPatients.forEach(p => {
+      if (p.expectedDeliveryDate) {
+        const edd = new Date(p.expectedDeliveryDate);
+        if (!isNaN(edd.getTime())) {
+          if (edd >= now && edd <= dueCutoff14) {
+            dueDeliveries++;
+          }
+          if (edd >= now && edd <= dueCutoff7) {
+            nearTermMothers.push(p);
+          }
+        }
+      }
+    });
+
+    const recentAppointments = await this.appointmentRepo.find({
+      where: { clinicianId, status: AppointmentStatus.COMPLETED },
+      order: { date: 'DESC', createdAt: 'DESC' },
+      take: 20,
+    });
+
+    const timeline = recentAppointments.map(appt => {
+      const data = appt.ancData || {};
+      let labs = '';
+      if (data.labResults) {
+        labs = Object.entries(data.labResults)
+          .filter(([_, v]) => v && v !== 'Not Tested')
+          .map(([k, v]) => `${k}: ${v}`).join(', ');
+      }
+      const meds = data.medications ? data.medications.join(', ') : '';
+      const flags = appt.riskResult?.clinicalFlags?.join(', ') || '';
+      
+      return {
+        id: appt.id,
+        date: appt.date,
+        patientName: appt.patientName,
+        title: appt.title,
+        labs: labs || 'No labs recorded',
+        medications: meds || 'No medications',
+        riskFlags: flags || 'No high risk flags',
+        riskCategory: appt.riskResult?.riskCategory || 'LOW_RISK'
+      };
+    });
+
+    const alerts: any[] = [];
+    
+    // Add Danger Signs & Severe Hypertension
+    recentAppointments.forEach(appt => {
+      if (appt.riskResult?.requiresImmediateAction) {
+        alerts.push({
+          type: 'Danger Signs',
+          patientName: appt.patientName,
+          message: `Requires immediate action: ${appt.riskResult.clinicalFlags?.join(', ') || 'High risk detected'}`,
+          severity: 'critical'
+        });
+      }
+    });
+
+    // Add missed visits to alerts
+    const missedAppointments = await this.appointmentRepo.find({
+      where: { clinicianId, status: AppointmentStatus.NO_SHOW },
+      order: { date: 'DESC' },
+      take: 10,
+    });
+
+    missedAppointments.forEach(a => {
+      alerts.push({
+        type: 'Missed Visit',
+        patientName: a.patientName,
+        message: `Missed ANC visit scheduled on ${a.date}`,
+        severity: 'high'
+      });
+    });
+
+    // Add near term mothers
+    nearTermMothers.forEach(m => {
+      alerts.push({
+        type: 'Near Term',
+        patientName: m.fullName,
+        message: `Expected delivery date is ${m.expectedDeliveryDate}`,
+        severity: 'warning'
+      });
+    });
+
+    return {
+      overview: {
+        activePregnancies,
+        highRiskPregnancies,
+        missedVisits,
+        dueDeliveries
+      },
+      timeline,
+      alerts
+    };
+  }
 }

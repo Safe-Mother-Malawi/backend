@@ -44,12 +44,6 @@ services:
         value: kachstephano@gmail.com
       - key: EMAIL_FROM_NAME
         value: Safe Mother Malawi
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_PHONE_NUMBER
-        value: +19086604827
       - key: PUBLIC_URL
         value: https://wisdom-thermal-gradation.ngrok-free.dev
       - key: BACKEND_URL

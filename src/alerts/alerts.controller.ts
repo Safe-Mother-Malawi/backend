@@ -42,8 +42,8 @@ export class AlertsController {
 
   @Patch(':id/attended')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
-  markAttended(@Param('id') id: string) {
-    return this.service.markAttended(id);
+  markAttended(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.service.markAttended(id, user.id);
   }
 
   @Delete(':id')

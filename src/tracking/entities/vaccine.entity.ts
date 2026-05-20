@@ -14,7 +14,7 @@ export enum VaccineStatus {
 export class Vaccine {
   @PrimaryGeneratedColumn('uuid') id: string;
 
-  @Column({ type: 'varchar' }) neonatalPatientId: string;
+  @Column({ type: 'varchar', nullable: true }) neonatalPatientId: string | null;
   @ManyToOne(() => NeonatalPatient, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'neonatalPatientId' })
   neonatalPatient: NeonatalPatient | null;

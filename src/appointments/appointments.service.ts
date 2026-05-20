@@ -262,7 +262,7 @@ export class AppointmentsService {
       if (appt.prenatalPatientId) {
         const patient = await this.prenatalRepo.findOne({ where: { id: appt.prenatalPatientId } });
         if (patient) {
-          patientAge = patient.age;
+          patientAge = patient.age ? parseInt(patient.age, 10) : undefined;
           const conditions = (patient.existingConditions || []).map(c => c.toLowerCase());
           previousCSection = conditions.some(c => c.includes('c-section') || c.includes('cesarean'));
           diabetes = conditions.some(c => c.includes('diabetes'));

@@ -26,6 +26,7 @@ import { HealthFacilitiesModule } from './health-facilities/health-facilities.mo
 import { WhoQuestionsModule } from './who-questions/who-questions.module';
 import { EventsModule } from './events/events.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { HealthCheckHistoryModule } from './health-check-history/health-check-history.module';
 
 // ── Entities ──────────────────────────────────────────────────────────────────
 import { User } from './users/entities/user.entity';
@@ -42,6 +43,7 @@ import { ActivityLog } from './activity-log/entities/activity-log.entity';
 import { Report } from './reports/entities/report.entity';
 import { HealthFacility } from './health-facilities/entities/health-facility.entity';
 import { WhoQuestion } from './who-questions/entities/who-question.entity';
+import { HealthCheckHistory } from './health-check-history/entities/health-check-history.entity';
 
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
@@ -76,6 +78,7 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
             User, PrenatalPatient, NeonatalPatient,
             RiskAssessment, Appointment, Alert, Notification,
             FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion,
+            HealthCheckHistory,
             PasswordResetToken,
           ],
           synchronize: true, // Auto-create tables (set to false after first successful deployment)
@@ -103,6 +106,7 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
     WhoQuestionsModule,
     EventsModule,
     RemindersModule,
+    HealthCheckHistoryModule,
   ],
   controllers: [AppController],
   providers: [

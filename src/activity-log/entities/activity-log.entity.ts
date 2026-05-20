@@ -14,6 +14,8 @@ export enum ActivityAction {
   PATIENT_LINKED    = 'patient.linked',
   RISK_SUBMITTED    = 'risk.submitted',
   RISK_HIGH_FLAGGED = 'risk.high_flagged',
+  HEALTH_CHECK_SUBMITTED = 'health_check.submitted',
+  HEALTH_CHECK_DELETED   = 'health_check.deleted',
   APPOINTMENT_CREATED   = 'appointment.created',
   APPOINTMENT_UPDATED   = 'appointment.updated',
   APPOINTMENT_CANCELLED = 'appointment.cancelled',

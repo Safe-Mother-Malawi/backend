@@ -110,58 +110,40 @@ export class RiskEngineService {
     let score = baseScore;
 
     if (input.patientType === 'prenatal') {
-      // BP > 160/110 → CRITICAL (pre-eclampsia / hypertensive emergency)
-      if ((input.systolicBP ?? 0) > 160 || (input.diastolicBP ?? 0) > 110) {
-        score = Math.max(score, 30);
-        flags.push('BP > 160/110 — Hypertensive Emergency');
-      }
-      // BP > 140/90 → HIGH
-      else if ((input.systolicBP ?? 0) > 140 || (input.diastolicBP ?? 0) > 90) {
-        score = Math.max(score, 15);
-        flags.push('BP > 140/90 — Elevated Blood Pressure');
-      }
+      // ONLY flag life-threatening emergencies
+      
       // Heavy bleeding → CRITICAL
       if (input.hasHeavyBleeding) {
         score = Math.max(score, 30);
         flags.push('Heavy Bleeding — Immediate Emergency');
       }
-      // Severe headache + vision changes → HIGH
-      if (input.hasSevereHeadacheWithVision) {
-        score = Math.max(score, 20);
-        flags.push('Severe Headache with Visual Disturbance — Pre-eclampsia Risk');
-      }
-      // Sudden severe swelling → HIGH
-      if (input.hasSuddenSevereSwelling) {
-        score = Math.max(score, 18);
-        flags.push('Sudden Severe Swelling — Possible Pre-eclampsia');
-      }
+      
       // No fetal movement → CRITICAL
       if (input.hasNoFetalMovement) {
-        score = Math.max(score, 25);
+        score = Math.max(score, 30);
         flags.push('No Fetal Movement — Urgent Assessment Required');
       }
     }
 
     if (input.patientType === 'neonatal') {
+      // ONLY flag life-threatening emergencies
+      
       // No breathing → CRITICAL
       if (input.hasNoBreathing) {
         score = Math.max(score, 30);
         flags.push('No Breathing — Neonatal Emergency');
       }
+      
       // Seizures → CRITICAL
       if (input.hasSeizures) {
         score = Math.max(score, 30);
         flags.push('Seizures — Neonatal Emergency');
       }
+      
       // Blue skin (cyanosis) → CRITICAL
       if (input.hasBlueSkin) {
-        score = Math.max(score, 28);
+        score = Math.max(score, 30);
         flags.push('Cyanosis (Blue Skin) — Respiratory Emergency');
-      }
-      // Very young baby (< 3 days) with any symptoms → escalate
-      if ((input.babyAgeInDays ?? 99) < 3 && baseScore > 3) {
-        score = Math.max(score, score + 5);
-        flags.push('Newborn < 3 days — Elevated Vigilance Required');
       }
     }
 
@@ -193,15 +175,15 @@ export class RiskEngineService {
 
   private categorise(score: number, patientType: 'prenatal' | 'neonatal'): RiskCategory {
     if (patientType === 'neonatal') {
-      if (score <= 5)  return RiskCategory.LOW;
-      if (score <= 14) return RiskCategory.MODERATE;
-      if (score <= 24) return RiskCategory.HIGH;
+      if (score <= 8)  return RiskCategory.LOW;
+      if (score <= 18) return RiskCategory.MODERATE;
+      if (score <= 28) return RiskCategory.HIGH;
       return RiskCategory.CRITICAL;
     }
     // Prenatal
-    if (score <= 4)  return RiskCategory.LOW;
-    if (score <= 12) return RiskCategory.MODERATE;
-    if (score <= 20) return RiskCategory.HIGH;
+    if (score <= 6)  return RiskCategory.LOW;
+    if (score <= 15) return RiskCategory.MODERATE;
+    if (score <= 25) return RiskCategory.HIGH;
     return RiskCategory.CRITICAL;
   }
 

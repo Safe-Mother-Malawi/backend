@@ -169,3 +169,75 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
       .getRawMany<{ managingAuthority: string }>();
     return rows.map(r => r.managingAuthority).filter(Boolean);
   }
+
+  /** Get facility types for a specific region */
+  async getFacilityTypesByRegion(region: string): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.facilityType', 'facilityType')
+      .where('f.region = :region', { region })
+      .andWhere('f.facilityType IS NOT NULL')
+      .orderBy('f.facilityType', 'ASC')
+      .getRawMany<{ facilityType: string }>();
+    return rows.map(r => r.facilityType).filter(Boolean);
+  }
+
+  /** Get managing authorities for a specific region */
+  async getManagingAuthoritiesByRegion(region: string): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.managingAuthority', 'managingAuthority')
+      .where('f.region = :region', { region })
+      .andWhere('f.managingAuthority IS NOT NULL')
+      .orderBy('f.managingAuthority', 'ASC')
+      .getRawMany<{ managingAuthority: string }>();
+    return rows.map(r => r.managingAuthority).filter(Boolean);
+  }
+
+  /** Get facility types for a specific zone */
+  async getFacilityTypesByZone(zone: string): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.facilityType', 'facilityType')
+      .where('f.zone = :zone', { zone })
+      .andWhere('f.facilityType IS NOT NULL')
+      .orderBy('f.facilityType', 'ASC')
+      .getRawMany<{ facilityType: string }>();
+    return rows.map(r => r.facilityType).filter(Boolean);
+  }
+
+  /** Get managing authorities for a specific zone */
+  async getManagingAuthoritiesByZone(zone: string): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.managingAuthority', 'managingAuthority')
+      .where('f.zone = :zone', { zone })
+      .andWhere('f.managingAuthority IS NOT NULL')
+      .orderBy('f.managingAuthority', 'ASC')
+      .getRawMany<{ managingAuthority: string }>();
+    return rows.map(r => r.managingAuthority).filter(Boolean);
+  }
+
+  /** Get facility types for a specific district */
+  async getFacilityTypesByDistrict(district: string): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.facilityType', 'facilityType')
+      .where('LOWER(f.district) = LOWER(:district)', { district })
+      .andWhere('f.facilityType IS NOT NULL')
+      .orderBy('f.facilityType', 'ASC')
+      .getRawMany<{ facilityType: string }>();
+    return rows.map(r => r.facilityType).filter(Boolean);
+  }
+
+  /** Get managing authorities for a specific district */
+  async getManagingAuthoritiesByDistrict(district: string): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.managingAuthority', 'managingAuthority')
+      .where('LOWER(f.district) = LOWER(:district)', { district })
+      .andWhere('f.managingAuthority IS NOT NULL')
+      .orderBy('f.managingAuthority', 'ASC')
+      .getRawMany<{ managingAuthority: string }>();
+    return rows.map(r => r.managingAuthority).filter(Boolean);
+  }

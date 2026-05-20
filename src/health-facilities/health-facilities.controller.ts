@@ -80,6 +80,36 @@ export class HealthFacilitiesController {
     return this.service.getManagingAuthorities();
   }
 
+  @Get('facility-types-by-region')
+  getFacilityTypesByRegion(@Query('region') region: string) {
+    return this.service.getFacilityTypesByRegion(region);
+  }
+
+  @Get('managing-authorities-by-region')
+  getManagingAuthoritiesByRegion(@Query('region') region: string) {
+    return this.service.getManagingAuthoritiesByRegion(region);
+  }
+
+  @Get('facility-types-by-zone')
+  getFacilityTypesByZone(@Query('zone') zone: string) {
+    return this.service.getFacilityTypesByZone(zone);
+  }
+
+  @Get('managing-authorities-by-zone')
+  getManagingAuthoritiesByZone(@Query('zone') zone: string) {
+    return this.service.getManagingAuthoritiesByZone(zone);
+  }
+
+  @Get('facility-types-by-district')
+  getFacilityTypesByDistrict(@Query('district') district: string) {
+    return this.service.getFacilityTypesByDistrict(district);
+  }
+
+  @Get('managing-authorities-by-district')
+  getManagingAuthoritiesByDistrict(@Query('district') district: string) {
+    return this.service.getManagingAuthoritiesByDistrict(district);
+  }
+
   // ── Protected write endpoint — admin only ─────────────────────────────────
 
   @Post()

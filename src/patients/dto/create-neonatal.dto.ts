@@ -5,6 +5,17 @@ export class CreateNeonatalDto {
   @IsNotEmpty() @IsString() babyDob: string;
   @IsOptional() @IsString() babyGender?: string;
   @IsOptional() @IsString() babyBirthWeight?: string;
+  @IsOptional() @IsString() birthLength?: string;
+  @IsOptional() @IsString() headCircumference?: string;
+  @IsOptional() apgarScore?: number;
+  @IsOptional() gestationalAgeAtBirth?: number;
+
+  @IsOptional() @IsString() deliveryMethod?: string;
+  @IsOptional() @IsString() placeOfBirth?: string;
+  @IsOptional() @IsString() birthAttendant?: string;
+  @IsOptional() @IsString() complicationsDuringDelivery?: string;
+
+  @IsOptional() @IsString() prenatalPatientId?: string;
 
   @IsNotEmpty() @IsString() motherName: string;
 

@@ -42,6 +42,16 @@ export class AnalyticsController {
     return this.service.getDistrictStats(district);
   }
 
+  @Get('geographic-insights')
+  getGeographicInsights() {
+    return this.service.getGeographicInsights();
+  }
+
+  @Get('neonatal-analytics')
+  getNeonatalAnalytics() {
+    return this.service.getNeonatalAnalytics();
+  }
+
   @Get('system-alerts')
   getSystemAlerts() {
     return this.service.getSystemAlerts();

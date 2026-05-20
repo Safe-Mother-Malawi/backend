@@ -12,6 +12,15 @@ export class NeonatalPatient {
   @Column({ type: 'varchar' }) babyDob: string;
   @Column({ type: 'varchar', nullable: true }) babyGender: string | null;
   @Column({ type: 'varchar', nullable: true }) babyBirthWeight: string | null;
+  @Column({ type: 'varchar', nullable: true }) birthLength: string | null;
+  @Column({ type: 'varchar', nullable: true }) headCircumference: string | null;
+  @Column({ type: 'int', nullable: true }) apgarScore: number | null;
+  @Column({ type: 'int', nullable: true }) gestationalAgeAtBirth: number | null;
+
+  @Column({ type: 'varchar', nullable: true }) deliveryMethod: string | null;
+  @Column({ type: 'varchar', nullable: true }) placeOfBirth: string | null;
+  @Column({ type: 'varchar', nullable: true }) birthAttendant: string | null;
+  @Column({ type: 'text', nullable: true }) complicationsDuringDelivery: string | null;
 
   @Column({ type: 'varchar' }) motherName: string;
   @Column({ type: 'varchar' }) motherPhone: string;
@@ -25,8 +34,11 @@ export class NeonatalPatient {
 
   @Column({ type: 'varchar', nullable: true }) registeredById: string | null;
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'registeredById' })
   registeredBy: User | null;
+
+  @Column({ type: 'varchar', nullable: true }) prenatalPatientId: string | null;
 
   @Column({ type: 'varchar', nullable: true }) userId: string | null;
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

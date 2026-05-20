@@ -7,6 +7,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
+import { Vaccine } from '../tracking/entities/vaccine.entity';
 
 @Injectable()
 export class RemindersService {
@@ -19,6 +20,8 @@ export class RemindersService {
     private readonly prenatalRepo: Repository<PrenatalPatient>,
     @InjectRepository(NeonatalPatient)
     private readonly neonatalRepo: Repository<NeonatalPatient>,
+    @InjectRepository(Vaccine)
+    private readonly vaccineRepo: Repository<Vaccine>,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -102,6 +105,68 @@ export class RemindersService {
     );
 
     this.logger.log(`Sent weekly ANC reminder to ${userIds.length} patients`);
+  }
+
+  // ── Run every day at 8:00 AM — upcoming vaccine reminders ───────────
+
+  @Cron('0 8 * * *', { name: 'vaccine-reminders', timeZone: 'Africa/Blantyre' })
+  async sendVaccineReminders(): Promise<void> {
+    this.logger.log('Running vaccine reminders job...');
+
+    const upcomingVaccines = await this.vaccineRepo.find({
+      where: { status: 'upcoming' as any },
+      relations: ['neonatalPatient', 'neonatalPatient.user'],
+    });
+
+    for (const v of upcomingVaccines) {
+      const patient = v.neonatalPatient;
+      if (patient && patient.user) {
+        // Only send if due in 7 days or overdue
+        const ageInDays = Math.floor((new Date().getTime() - new Date(patient.babyDob).getTime()) / 86400000);
+        if (ageInDays >= v.dueDayAge - 7) {
+          await this.notificationsService.broadcast(
+            [patient.user.id],
+            '💉 Vaccine Reminder',
+            `Baby ${patient.babyName} is due for the ${v.name} vaccine (${v.ageLabel}). Please visit the clinic to track completed vaccines.`,
+            NotificationType.INFO,
+          );
+        }
+      }
+    }
+  }
+
+  // ── Run every day at 23:00 to detect missed appointments ──────────────────
+
+  @Cron('0 23 * * *', { name: 'missed-visit-detector', timeZone: 'Africa/Blantyre' })
+  async detectMissedVisits(): Promise<void> {
+    this.logger.log('Running missed visit detector job...');
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Find all scheduled or confirmed appointments before today
+    const missedAppointments = await this.appointmentRepo.createQueryBuilder('appt')
+      .where('appt.date < :today', { today })
+      .andWhere('appt.status IN (:...statuses)', { statuses: ['scheduled', 'confirmed'] })
+      .getMany();
+
+    this.logger.log(`Found ${missedAppointments.length} missed appointments.`);
+
+    for (const appt of missedAppointments) {
+      // Cast to any to avoid importing AppointmentStatus here if it's not exported properly or easier this way
+      appt.status = 'no_show' as any; 
+      await this.appointmentRepo.save(appt);
+
+      const userId = await this._resolvePatientUserId(appt);
+      if (userId) {
+        await this.notificationsService.broadcast(
+          [userId],
+          '⚠️ Missed ANC Visit',
+          `You missed your ANC appointment "${appt.title}" scheduled on ${appt.date}. Please visit your clinic as soon as possible.`,
+          NotificationType.ALERT,
+        );
+        this.logger.log(`Marked missed and notified user ${userId} for appointment ${appt.id}`);
+      }
+    }
   }
 
   // ── Manual trigger — send reminder for a specific appointment ────────────

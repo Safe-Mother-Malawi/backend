@@ -132,12 +132,19 @@ export class PatientsService {
           userId:          user.id,
           registeredById:  null, // self-registered
         });
+
+        // Auto-link to existing prenatal patient if not provided
+        const prenatalRecord = await this.prenatalRepo.findOne({ where: { phone: user.phone } });
+        if (prenatalRecord) {
+          patient.prenatalPatientId = prenatalRecord.id;
+        }
         const saved = await this.neonatalRepo.save(patient);
 
         // Seed vaccine schedule if DOB is available
         if (user.babyDob) {
           try {
             await this.trackingService.seedVaccines(saved.id, new Date(user.babyDob));
+            await this.appointmentsService.scheduleInitialNeonatalVisit(saved.id, user.babyDob, saved.babyName, saved.district || undefined);
           } catch (_) { /* non-critical */ }
         }
 
@@ -329,6 +336,14 @@ export class PatientsService {
       }
       linkedUserId = existingUser.id;
       patient.userId = linkedUserId; // Link baby to mother's account
+    }
+
+    // Auto-link to existing prenatal patient if not provided in dto
+    if (!patient.prenatalPatientId) {
+      const prenatalRecord = await this.prenatalRepo.findOne({ where: { phone: dto.motherPhone } });
+      if (prenatalRecord) {
+        patient.prenatalPatientId = prenatalRecord.id;
+      }
     }
 
     const saved = await this.neonatalRepo.save(patient);

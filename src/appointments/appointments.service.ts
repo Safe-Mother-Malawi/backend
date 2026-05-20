@@ -34,7 +34,11 @@ export class AppointmentsService {
 
     // 1. Process ANC Visit if ancData is provided
     if (appt.ancData) {
-      await this._processAncVisit(appt, createdBy);
+      if (appt.type === AppointmentType.NEONATAL) {
+        await this._processNeonatalVisit(appt, createdBy);
+      } else {
+        await this._processAncVisit(appt, createdBy);
+      }
     }
 
     const saved = await this.repo.save(appt);
@@ -250,6 +254,31 @@ export class AppointmentsService {
       if (fetalMovementStr === 'Absent') fmScore = 7;
       else if (fetalMovementStr === 'Reduced') fmScore = 3;
 
+      let patientAge: number | undefined;
+      let previousCSection = false;
+      let diabetes = false;
+      let multiplePregnancy = false;
+
+      if (appt.prenatalPatientId) {
+        const patient = await this.prenatalRepo.findOne({ where: { id: appt.prenatalPatientId } });
+        if (patient) {
+          patientAge = patient.age;
+          const conditions = (patient.existingConditions || []).map(c => c.toLowerCase());
+          previousCSection = conditions.some(c => c.includes('c-section') || c.includes('cesarean'));
+          diabetes = conditions.some(c => c.includes('diabetes'));
+          multiplePregnancy = conditions.some(c => c.includes('twins') || c.includes('multiple'));
+        }
+      }
+
+      const hbLevelStr = data.laboratoryResults?.hbLevel;
+      let severeAnemia = false;
+      if (hbLevelStr) {
+        const hb = parseFloat(hbLevelStr);
+        if (!isNaN(hb) && hb < 7.0) severeAnemia = true;
+      }
+      const hivStatus = data.laboratoryResults?.hivStatus;
+      const hivPositive = hivStatus === 'Positive';
+
       const input: RiskEngineInput = {
         patientType: 'prenatal',
         systolicBP,
@@ -260,6 +289,14 @@ export class AppointmentsService {
         fetalMovement: fmScore,
         hasNoFetalMovement: fetalMovementStr === 'Absent' || dangerSigns.includes('Reduced fetal movement'),
       };
+      
+      // Inject the predictive factors into the input object
+      input.age = patientAge;
+      input.previousCSection = previousCSection;
+      input.severeAnemia = severeAnemia;
+      input.diabetes = diabetes;
+      input.hivPositive = hivPositive;
+      input.multiplePregnancy = multiplePregnancy;
 
       const riskResult = this.riskEngineService.assess(input);
       appt.riskResult = riskResult;
@@ -281,6 +318,23 @@ export class AppointmentsService {
             `Patient ${appt.patientName} requires immediate action. Risk: ${riskResult.riskCategory}. Flags: ${riskResult.clinicalFlags.join(', ')}`,
             NotificationType.ALERT,
           );
+        }
+      }
+
+      // Notify the mother directly
+      if (riskResult.requiresImmediateAction) {
+        let patientUserId: string | null = null;
+        if (appt.prenatalPatientId) {
+          const p = await this.prenatalRepo.findOne({ where: { id: appt.prenatalPatientId } });
+          patientUserId = p?.userId ?? null;
+        }
+        if (patientUserId) {
+          await this.notificationsService.create({
+            userId: patientUserId,
+            title: 'URGENT: Immediate Action Required',
+            body: riskResult.message, // contains hospital routing instructions
+            type: NotificationType.ALERT,
+          });
         }
       }
 
@@ -378,8 +432,125 @@ export class AppointmentsService {
 
       await this.repo.save(appt);
       this.logger.log(`Auto-scheduled initial ANC visit for ${patientName} on ${appt.date} (${targetWeeks} weeks)`);
-    } catch (error) {
-      this.logger.error(`Failed to auto-schedule initial ANC for ${prenatalId}`, error);
+    } catch (e) {
+      this.logger.error('Failed to auto-schedule initial ANC visit', e);
+    }
+  }
+
+  /**
+   * Automates the first Neonatal Visit scheduling (24 hours).
+   * This should be called immediately after a neonatal patient is registered.
+   */
+  async scheduleInitialNeonatalVisit(neonatalId: string, dobStr: string, babyName: string, district?: string): Promise<void> {
+    try {
+      const dob = new Date(dobStr);
+      if (isNaN(dob.getTime())) return;
+
+      const nextDate = new Date(dob);
+      nextDate.setDate(nextDate.getDate() + 1); // Visit 1: Within 24 hours
+
+      const appt = this.repo.create({
+        title: 'Neonatal Visit 1 (24 Hours)',
+        patientName: babyName,
+        patientContact: 'N/A',
+        type: AppointmentType.NEONATAL,
+        status: AppointmentStatus.SCHEDULED,
+        date: nextDate.toISOString().split('T')[0],
+        time: '09:00 AM',
+        location: district ? `${district} Health Center` : 'Local Health Center',
+        neonatalPatientId: neonatalId,
+        notes: `Auto-scheduled Neonatal Visit 1 (24h check) based on DOB (${dobStr}).`,
+      });
+
+      await this.repo.save(appt);
+      this.logger.log(`Auto-scheduled Neonatal Visit 1 for ${babyName} on ${appt.date}`);
+    } catch (e) {
+      this.logger.error('Failed to auto-schedule initial Neonatal visit', e);
+    }
+  }
+
+  /**
+   * Automates the Neonatal Visit Flow:
+   * 1. Maps assessment data to RiskEngineInput
+   * 2. Runs RiskEngineService.assess()
+   * 3. Auto-schedules next appointment (Day 3, 7, 14, 28) based on age
+   * 4. Triggers alerts for Neonatal Emergency
+   */
+  private async _processNeonatalVisit(appt: Appointment, createdBy: User): Promise<void> {
+    try {
+      const data = appt.ancData; // assuming frontend sends neonatal data in the same JSONb field
+      if (!data) return;
+
+      const dangerSigns = (data.dangerSigns || []) as string[];
+      
+      const input: RiskEngineInput = {
+        patientType: 'neonatal',
+        hasNoBreathing: dangerSigns.includes('No breathing') || dangerSigns.includes('Fast breathing'),
+        hasSeizures: dangerSigns.includes('Convulsions') || dangerSigns.includes('Seizures'),
+        hasBlueSkin: dangerSigns.includes('Blue skin') || dangerSigns.includes('Cyanosis'),
+      };
+
+      const riskResult = this.riskEngineService.assess(input);
+      appt.riskResult = riskResult;
+
+      // Alerts Generated
+      if (riskResult.requiresImmediateAction) {
+        const [clinicians, dhos] = await Promise.all([
+          this.usersService.findByRole(UserRole.CLINICIAN),
+          this.usersService.findByRole(UserRole.DHO),
+        ]);
+        const recipientIds = [...clinicians, ...dhos]
+          .map(u => u.id)
+          .filter(id => id !== createdBy.id);
+
+        if (recipientIds.length > 0) {
+          await this.notificationsService.broadcast(
+            recipientIds,
+            'EMERGENCY: Neonatal High Risk Alert',
+            `Baby ${appt.patientName} requires immediate action. Risk: ${riskResult.riskCategory}. Flags: ${riskResult.clinicalFlags.join(', ')}`,
+            NotificationType.ALERT,
+          );
+        }
+      }
+
+      // Next Visit Scheduled
+      if (appt.neonatalPatientId) {
+        const patient = await this.neonatalRepo.findOne({ where: { id: appt.neonatalPatientId } });
+        if (patient) {
+          const dob = new Date(patient.babyDob);
+          const now = new Date();
+          const ageInDays = Math.floor((now.getTime() - dob.getTime()) / (1000 * 60 * 60 * 24));
+
+          let nextTargetDay = 0;
+          let visitTitle = '';
+
+          if (ageInDays < 3) { nextTargetDay = 3; visitTitle = 'Neonatal Visit 2 (Day 3)'; }
+          else if (ageInDays < 7) { nextTargetDay = 7; visitTitle = 'Neonatal Visit 3 (Day 7)'; }
+          else if (ageInDays < 14) { nextTargetDay = 14; visitTitle = 'Neonatal Visit 4 (Day 14)'; }
+          else if (ageInDays < 28) { nextTargetDay = 28; visitTitle = 'Neonatal Visit 5 (Day 28)'; }
+
+          if (nextTargetDay > 0) {
+            const nextDate = new Date(dob);
+            nextDate.setDate(nextDate.getDate() + nextTargetDay);
+
+            const nextAppt = this.repo.create({
+              title: visitTitle,
+              patientName: appt.patientName,
+              patientContact: appt.patientContact,
+              type: AppointmentType.NEONATAL,
+              status: AppointmentStatus.SCHEDULED,
+              date: nextDate.toISOString().split('T')[0],
+              neonatalPatientId: appt.neonatalPatientId,
+              createdById: createdBy.id,
+              clinicianId: createdBy.id,
+              notes: `Auto-scheduled based on baby age (${ageInDays} days). Target: Day ${nextTargetDay}.`,
+            });
+            await this.repo.save(nextAppt);
+          }
+        }
+      }
+    } catch (e) {
+      this.logger.error('Failed to process Neonatal visit risk engine/auto-schedule', e);
     }
   }
 }

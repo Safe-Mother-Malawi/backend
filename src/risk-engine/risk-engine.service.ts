@@ -59,6 +59,14 @@ export interface RiskEngineInput {
   hasBlueSkin?: boolean;
   babyAgeInDays?: number;
 
+  // New specific predictive factors
+  age?: number;
+  previousCSection?: boolean;
+  severeAnemia?: boolean;
+  diabetes?: boolean;
+  hivPositive?: boolean;
+  multiplePregnancy?: boolean;
+
   patientType: 'prenatal' | 'neonatal';
 }
 
@@ -122,6 +130,32 @@ export class RiskEngineService {
       if (input.hasNoFetalMovement) {
         score = Math.max(score, 30);
         flags.push('No Fetal Movement — Urgent Assessment Required');
+      }
+      
+      // Predictive Risk Factors
+      if (input.age !== undefined && (input.age < 18 || input.age > 35)) {
+        score = Math.max(score, 15);
+        flags.push('High Risk Age (<18 or >35)');
+      }
+      if (input.previousCSection) {
+        score = Math.max(score, 15);
+        flags.push('Previous C-Section');
+      }
+      if (input.severeAnemia) {
+        score = Math.max(score, 18);
+        flags.push('Severe Anemia');
+      }
+      if (input.diabetes) {
+        score = Math.max(score, 15);
+        flags.push('Diabetes');
+      }
+      if (input.hivPositive) {
+        score = Math.max(score, 15);
+        flags.push('HIV Positive');
+      }
+      if (input.multiplePregnancy) {
+        score = Math.max(score, 15);
+        flags.push('Multiple Pregnancy');
       }
     }
 

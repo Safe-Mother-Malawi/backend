@@ -79,10 +79,13 @@ export class TrackingController {
     return this.service.getVaccines(id);
   }
 
-  @Patch('vaccines/:id/given')
+  @Patch('vaccines/:neonatalPatientId')
   @Roles(UserRole.NEONATAL, UserRole.CLINICIAN, UserRole.ADMIN)
-  markVaccineGiven(@Param('id') id: string) {
-    return this.service.markVaccineGiven(id);
+  async toggleVaccineStatus(
+    @Param('neonatalPatientId') id: string,
+    @Body() body: { name: string; given: boolean },
+  ) {
+    return this.service.toggleVaccineStatus(id, body.name, body.given);
   }
 
   @Get('vaccines/:neonatalPatientId/next')

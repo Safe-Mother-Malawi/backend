@@ -17,10 +17,10 @@ export class UsersSeedService {
 
   async seed() {
     const count = await this.userRepository.count();
-    if (count > 0) {
-      this.logger.log('Users already exist, skipping seed');
-      return;
-    }
+    // if (count > 0) {
+    //   this.logger.log('Users already exist, skipping seed');
+    //   return;
+    // }
 
     this.logger.log('Seeding default users...');
 
@@ -43,6 +43,14 @@ export class UsersSeedService {
         password: dhoPassword,
         fullName: 'District Health Officer',
         role: 'dho',
+        district: 'Lilongwe',
+      },
+      {
+        email: 'clinician@safemothermalawi.mw',
+        phone: '+265991234569',
+        password: 'Clinician@123',
+        fullName: 'Test Clinician',
+        role: 'clinician',
         district: 'Lilongwe',
       },
     ];

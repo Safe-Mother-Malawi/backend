@@ -9,12 +9,16 @@ import { CreateSleepLogDto } from './dto/create-sleep-log.dto';
 
 // ── Malawi EPI vaccine schedule ───────────────────────────────────────────────
 const EPI_SCHEDULE = [
-  { name: 'BCG',          ageLabel: 'At birth',  dueDayAge: 0   },
-  { name: 'OPV 0',        ageLabel: 'At birth',  dueDayAge: 0   },
-  { name: 'OPV 1 + Penta 1 + PCV 1 + Rota 1', ageLabel: '6 weeks',  dueDayAge: 42  },
-  { name: 'OPV 2 + Penta 2 + PCV 2 + Rota 2', ageLabel: '10 weeks', dueDayAge: 70  },
-  { name: 'OPV 3 + Penta 3 + PCV 3 + Rota 3', ageLabel: '14 weeks', dueDayAge: 98  },
-  { name: 'Measles + Rubella (MR)',             ageLabel: '9 months', dueDayAge: 274 },
+  { name: 'BCG (Tuberculosis)',          ageLabel: 'At birth',  dueDayAge: 0   },
+  { name: 'OPV-0 (Oral Polio)',          ageLabel: 'At birth',  dueDayAge: 0   },
+  { name: 'Hepatitis B · Birth dose',    ageLabel: 'At birth',  dueDayAge: 0   },
+  { name: 'OPV-1 + PCV-1 + Pentavalent-1', ageLabel: '6 weeks', dueDayAge: 42  },
+  { name: 'Rotavirus · Dose 1',            ageLabel: '6 weeks', dueDayAge: 42  },
+  { name: 'OPV-2 + PCV-2 + Pentavalent-2', ageLabel: '10 weeks', dueDayAge: 70  },
+  { name: 'Rotavirus · Dose 2',            ageLabel: '10 weeks', dueDayAge: 70  },
+  { name: 'OPV-3 + PCV-3 + Pentavalent-3', ageLabel: '14 weeks', dueDayAge: 98  },
+  { name: 'IPV (Inactivated Polio)',       ageLabel: '14 weeks', dueDayAge: 98  },
+  { name: 'Measles + Yellow Fever',        ageLabel: '9 months', dueDayAge: 274 },
 ];
 
 @Injectable()
@@ -125,11 +129,12 @@ export class TrackingService {
     });
   }
 
-  async markVaccineGiven(id: string): Promise<Vaccine> {
-    const vaccine = await this.vaccineRepo.findOne({ where: { id } });
+  async toggleVaccineStatus(neonatalPatientId: string, name: string, given: boolean): Promise<Vaccine> {
+    const vaccine = await this.vaccineRepo.findOne({ where: { neonatalPatientId, name } });
     if (!vaccine) throw new NotFoundException('Vaccine record not found.');
-    vaccine.status = VaccineStatus.GIVEN;
-    vaccine.givenDate = new Date().toISOString().split('T')[0];
+    
+    vaccine.status = given ? VaccineStatus.GIVEN : VaccineStatus.SCHEDULED; // fallback if untoggled
+    vaccine.givenDate = given ? new Date().toISOString().split('T')[0] : null;
     return this.vaccineRepo.save(vaccine);
   }
 

@@ -7,14 +7,23 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ActivityAction } from '../activity-log/entities/activity-log.entity';
 import { UsersService } from '../users/users.service';
+import { AlertsService } from '../alerts/alerts.service';
+import { AlertSeverity } from '../alerts/entities/alert.entity';
+import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
+import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 
 @Injectable()
 export class HealthCheckHistoryService {
   constructor(
     @InjectRepository(HealthCheckHistory)
     private readonly repo: Repository<HealthCheckHistory>,
+    @InjectRepository(PrenatalPatient)
+    private readonly prenatalRepo: Repository<PrenatalPatient>,
+    @InjectRepository(NeonatalPatient)
+    private readonly neonatalRepo: Repository<NeonatalPatient>,
     private readonly activityLog: ActivityLogService,
     private readonly usersService: UsersService,
+    private readonly alertsService: AlertsService,
   ) {}
 
   /**
@@ -83,6 +92,11 @@ export class HealthCheckHistoryService {
         type: dto.type,
       },
     });
+
+    // Create alert if Medium or High Risk
+    if (dto.riskLevel === 'Moderate Risk' || dto.riskLevel === 'High Risk' || dto.riskLevel === 'Seek Help Immediately') {
+      await this._createRiskAlert(user, dto, saved.id);
+    }
 
     return saved;
   }
@@ -269,5 +283,67 @@ export class HealthCheckHistoryService {
 
   private isPatient(user: User): boolean {
     return user.role === UserRole.PRENATAL || user.role === UserRole.NEONATAL;
+  }
+
+  /**
+   * Create an alert for Medium/High Risk health checks
+   * Routes alert to clinicians assigned to the patient's facility
+   */
+  private async _createRiskAlert(
+    user: User,
+    dto: CreateHealthCheckHistoryDto,
+    healthCheckId: string,
+  ): Promise<void> {
+    try {
+      // Get patient details to find facility and district
+      let patient: any = null;
+      let patientType = '';
+
+      if (user.role === UserRole.PRENATAL) {
+        patient = await this.prenatalRepo.findOne({ where: { userId: user.id } });
+        patientType = 'Prenatal';
+      } else if (user.role === UserRole.NEONATAL) {
+        patient = await this.neonatalRepo.findOne({ where: { userId: user.id } });
+        patientType = 'Neonatal';
+      }
+
+      if (!patient) {
+        console.warn(`No patient record found for user ${user.id}`);
+        return;
+      }
+
+      const district = patient.district || user.district;
+      const facilityName = patient.facilityName || user.facilityName;
+
+      // Determine alert severity based on risk level
+      let severity = AlertSeverity.MEDIUM;
+      if (dto.riskLevel === 'High Risk') {
+        severity = AlertSeverity.HIGH;
+      } else if (dto.riskLevel === 'Seek Help Immediately') {
+        severity = AlertSeverity.CRITICAL;
+      }
+
+      // Build symptoms string
+      const symptomsStr = (dto.symptoms || []).join(', ');
+
+      // Create the alert with patient facility information
+      await this.alertsService.createFromRisk({
+        patientName: user.fullName,
+        patientStatus: patientType,
+        contact: user.phone,
+        reason: `${dto.riskLevel} - ${dto.message || 'Health check alert'}`,
+        symptoms: dto.symptoms || [],
+        severity,
+        patientId: user.id,
+        clinicianId: null, // Will be routed to facility clinicians
+        district,
+        facilityName,
+      });
+
+      console.log(`✅ Alert created for ${user.fullName} at ${facilityName}, ${district}`);
+    } catch (error) {
+      console.error(`❌ Failed to create risk alert: ${error.message}`);
+      // Don't throw — alert creation failure shouldn't block health check submission
+    }
   }
 }

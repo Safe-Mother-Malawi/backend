@@ -1,205 +1,327 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Appointment } from '../appointments/entities/appointment.entity';
+import { Repository, LessThanOrEqual, IsNull } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { Reminder, ReminderStatus, ReminderType, ReminderFrequency } from './entities/reminder.entity';
+import { CreateReminderDto } from './dto/create-reminder.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
-import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
-import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
-import { Vaccine } from '../tracking/entities/vaccine.entity';
+import { User } from '../users/entities/user.entity';
+import { Appointment } from '../appointments/entities/appointment.entity';
+import { EventsGateway, SocketEvent } from '../events/events.gateway';
 
 @Injectable()
 export class RemindersService {
   private readonly logger = new Logger(RemindersService.name);
 
   constructor(
+    @InjectRepository(Reminder)
+    private readonly reminderRepo: Repository<Reminder>,
     @InjectRepository(Appointment)
     private readonly appointmentRepo: Repository<Appointment>,
-    @InjectRepository(PrenatalPatient)
-    private readonly prenatalRepo: Repository<PrenatalPatient>,
-    @InjectRepository(NeonatalPatient)
-    private readonly neonatalRepo: Repository<NeonatalPatient>,
-    @InjectRepository(Vaccine)
-    private readonly vaccineRepo: Repository<Vaccine>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
-  // ── Run every day at 8:00 AM ──────────────────────────────────────────────
-
-  @Cron('0 8 * * *', { name: 'appointment-reminders', timeZone: 'Africa/Blantyre' })
-  async sendAppointmentReminders(): Promise<void> {
-    this.logger.log('Running appointment reminder job...');
-
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-    // Find all appointments scheduled for tomorrow
-    const appointments = await this.appointmentRepo.find({
-      where: { date: tomorrowStr },
-    });
-
-    this.logger.log(`Found ${appointments.length} appointments for tomorrow (${tomorrowStr})`);
-
-    for (const appt of appointments) {
-      const userId = await this._resolvePatientUserId(appt);
-      if (!userId) continue;
-
-      const time = appt.time ? ` at ${appt.time}` : '';
-      const location = appt.location ? ` at ${appt.location}` : '';
-
-      await this.notificationsService.broadcast(
-        [userId],
-        '📅 ANC Visit Tomorrow',
-        `Your ANC appointment "${appt.title}"${time}${location} is scheduled for tomorrow. Please remember to attend.`,
-        NotificationType.APPOINTMENT,
-      );
-
-      this.logger.log(`Sent tomorrow reminder to user ${userId} for appointment ${appt.id}`);
-    }
-  }
-
-  // ── Run every day at 9:00 AM ──────────────────────────────────────────────
-
-  @Cron('0 9 * * *', { name: 'iron-tablet-reminders', timeZone: 'Africa/Blantyre' })
-  async sendIronTabletReminders(): Promise<void> {
-    this.logger.log('Running iron tablet reminder job...');
-
-    // Find all prenatal patients with linked user accounts
-    const prenatalPatients = await this.prenatalRepo.find();
-
-    const userIds: string[] = [];
-    for (const p of prenatalPatients) {
-      if (p.userId) userIds.push(p.userId);
+  /**
+   * Create a new reminder for a user
+   */
+  async create(userId: string, dto: CreateReminderDto): Promise<Reminder> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
     }
 
-    if (userIds.length === 0) return;
-
-    // Broadcast daily iron tablet reminder to all active prenatal patients
-    await this.notificationsService.broadcast(
-      userIds,
-      '💊 Daily Reminder',
-      'Please take your iron tablets and folic acid today. Consistent daily intake is important for your baby\'s development and your health.',
-      NotificationType.INFO,
-    );
-
-    this.logger.log(`Sent iron tablet reminder to ${userIds.length} prenatal patients`);
-  }
-
-  // ── Run every Monday at 8:30 AM — weekly ANC schedule reminder ───────────
-
-  @Cron('30 8 * * 1', { name: 'weekly-anc-reminder', timeZone: 'Africa/Blantyre' })
-  async sendWeeklyAncReminder(): Promise<void> {
-    this.logger.log('Running weekly ANC reminder job...');
-
-    const prenatalPatients = await this.prenatalRepo.find();
-    const userIds = prenatalPatients.filter(p => p.userId).map(p => p.userId!);
-    if (userIds.length === 0) return;
-
-    await this.notificationsService.broadcast(
-      userIds,
-      '🏥 Weekly Health Check',
-      'Remember to attend all your scheduled ANC visits. Regular check-ups help keep you and your baby safe. Check your appointments for this week.',
-      NotificationType.INFO,
-    );
-
-    this.logger.log(`Sent weekly ANC reminder to ${userIds.length} patients`);
-  }
-
-  // ── Run every day at 8:00 AM — upcoming vaccine reminders ───────────
-
-  @Cron('0 8 * * *', { name: 'vaccine-reminders', timeZone: 'Africa/Blantyre' })
-  async sendVaccineReminders(): Promise<void> {
-    this.logger.log('Running vaccine reminders job...');
-
-    const upcomingVaccines = await this.vaccineRepo.find({
-      where: { status: 'upcoming' as any },
-      relations: ['neonatalPatient', 'neonatalPatient.user'],
+    const reminder = this.reminderRepo.create({
+      userId,
+      title: dto.title,
+      body: dto.body,
+      type: dto.type,
+      frequency: dto.frequency,
+      scheduledFor: new Date(dto.scheduledFor),
+      appointmentId: dto.appointmentId,
+      patientId: dto.patientId,
+      metadata: dto.metadata,
+      status: ReminderStatus.PENDING,
     });
 
-    for (const v of upcomingVaccines) {
-      const patient = v.neonatalPatient;
-      if (patient && patient.user) {
-        // Only send if due in 7 days or overdue
-        const ageInDays = Math.floor((new Date().getTime() - new Date(patient.babyDob).getTime()) / 86400000);
-        if (ageInDays >= v.dueDayAge - 7) {
-          await this.notificationsService.broadcast(
-            [patient.user.id],
-            '💉 Vaccine Reminder',
-            `Baby ${patient.babyName} is due for the ${v.name} vaccine (${v.ageLabel}). Please visit the clinic to track completed vaccines.`,
-            NotificationType.INFO,
-          );
+    return this.reminderRepo.save(reminder);
+  }
+
+  /**
+   * Get all reminders for a user
+   */
+  async findByUser(userId: string): Promise<Reminder[]> {
+    return this.reminderRepo.find({
+      where: { userId },
+      order: { scheduledFor: 'ASC' },
+    });
+  }
+
+  /**
+   * Get pending reminders for a user
+   */
+  async findPendingByUser(userId: string): Promise<Reminder[]> {
+    return this.reminderRepo.find({
+      where: { userId, status: ReminderStatus.PENDING },
+      order: { scheduledFor: 'ASC' },
+    });
+  }
+
+  /**
+   * Get a single reminder by ID
+   */
+  async findById(id: string): Promise<Reminder | null> {
+    return this.reminderRepo.findOne({ where: { id } });
+  }
+
+  /**
+   * Update reminder status
+   */
+  async updateStatus(id: string, status: ReminderStatus): Promise<Reminder | null> {
+    const reminder = await this.reminderRepo.findOne({ where: { id } });
+    if (!reminder) return null;
+
+    reminder.status = status;
+    if (status === ReminderStatus.SENT) {
+      reminder.sentAt = new Date();
+    }
+
+    return this.reminderRepo.save(reminder);
+  }
+
+  /**
+   * Acknowledge a reminder (mark as seen by user)
+   */
+  async acknowledge(id: string): Promise<Reminder | null> {
+    const reminder = await this.reminderRepo.findOne({ where: { id } });
+    if (!reminder) return null;
+
+    reminder.acknowledged = true;
+    return this.reminderRepo.save(reminder);
+  }
+
+  /**
+   * Cancel a reminder
+   */
+  async cancel(id: string): Promise<Reminder | null> {
+    const reminder = await this.reminderRepo.findOne({ where: { id } });
+    if (!reminder) return null;
+
+    reminder.status = ReminderStatus.CANCELLED;
+    return this.reminderRepo.save(reminder);
+  }
+
+  /**
+   * Delete a reminder
+   */
+  async delete(id: string): Promise<boolean> {
+    const result = await this.reminderRepo.delete(id);
+    return (result.affected ?? 0) > 0;
+  }
+
+  /**
+   * Reschedule a reminder
+   */
+  async reschedule(id: string, newScheduledFor: Date): Promise<Reminder | null> {
+    const reminder = await this.reminderRepo.findOne({ where: { id } });
+    if (!reminder) return null;
+
+    reminder.scheduledFor = newScheduledFor;
+    reminder.status = ReminderStatus.PENDING;
+    reminder.sentAt = null;
+
+    return this.reminderRepo.save(reminder);
+  }
+
+  /**
+   * Cron job: Send pending reminders every minute
+   * Runs at the top of every minute
+   */
+  @Cron('0 * * * * *', { name: 'send-pending-reminders', timeZone: 'Africa/Blantyre' })
+  async sendPendingReminders(): Promise<void> {
+    try {
+      const now = new Date();
+
+      // Find all pending reminders scheduled for now or earlier
+      const pendingReminders = await this.reminderRepo.find({
+        where: {
+          status: ReminderStatus.PENDING,
+          scheduledFor: LessThanOrEqual(now),
+        },
+        relations: ['user'],
+      });
+
+      this.logger.log(`Found ${pendingReminders.length} reminders to send`);
+
+      for (const reminder of pendingReminders) {
+        try {
+          await this.sendReminder(reminder);
+        } catch (error) {
+          this.logger.error(`Failed to send reminder ${reminder.id}:`, error);
+          reminder.status = ReminderStatus.FAILED;
+          await this.reminderRepo.save(reminder);
         }
       }
+    } catch (error) {
+      this.logger.error('Error in sendPendingReminders cron job:', error);
     }
   }
 
-  // ── Run every day at 23:00 to detect missed appointments ──────────────────
+  /**
+   * Send a single reminder
+   */
+  private async sendReminder(reminder: Reminder): Promise<void> {
+    // Create notification
+    await this.notificationsService.create({
+      userId: reminder.userId,
+      title: reminder.title,
+      body: reminder.body,
+      type: this.mapReminderTypeToNotificationType(reminder.type),
+    });
 
-  @Cron('0 23 * * *', { name: 'missed-visit-detector', timeZone: 'Africa/Blantyre' })
-  async detectMissedVisits(): Promise<void> {
-    this.logger.log('Running missed visit detector job...');
+    // Update reminder status
+    reminder.status = ReminderStatus.SENT;
+    reminder.sentAt = new Date();
 
-    const today = new Date().toISOString().split('T')[0];
+    // Handle recurring reminders
+    if (reminder.frequency !== ReminderFrequency.ONCE) {
+      const nextReminderAt = this.calculateNextReminderTime(
+        reminder.scheduledFor,
+        reminder.frequency,
+      );
+      reminder.nextReminderAt = nextReminderAt;
+      reminder.status = ReminderStatus.PENDING;
+      reminder.scheduledFor = nextReminderAt;
+    }
 
-    // Find all scheduled or confirmed appointments before today
-    const missedAppointments = await this.appointmentRepo.createQueryBuilder('appt')
-      .where('appt.date < :today', { today })
-      .andWhere('appt.status IN (:...statuses)', { statuses: ['scheduled', 'confirmed'] })
+    await this.reminderRepo.save(reminder);
+
+    // Emit WebSocket event for real-time notification
+    this.eventsGateway.emit(SocketEvent.REMINDER_SENT, {
+      userId: reminder.userId,
+      reminderId: reminder.id,
+      title: reminder.title,
+      type: reminder.type,
+    });
+
+    this.logger.log(`Reminder ${reminder.id} sent to user ${reminder.userId}`);
+  }
+
+  /**
+   * Calculate next reminder time based on frequency
+   */
+  private calculateNextReminderTime(currentTime: Date, frequency: ReminderFrequency): Date {
+    const next = new Date(currentTime);
+
+    switch (frequency) {
+      case ReminderFrequency.DAILY:
+        next.setDate(next.getDate() + 1);
+        break;
+      case ReminderFrequency.WEEKLY:
+        next.setDate(next.getDate() + 7);
+        break;
+      case ReminderFrequency.MONTHLY:
+        next.setMonth(next.getMonth() + 1);
+        break;
+      case ReminderFrequency.ONCE:
+      default:
+        return null;
+    }
+
+    return next;
+  }
+
+  /**
+   * Map reminder type to notification type
+   */
+  private mapReminderTypeToNotificationType(type: ReminderType): NotificationType {
+    switch (type) {
+      case ReminderType.APPOINTMENT:
+      case ReminderType.ANC_VISIT:
+      case ReminderType.PRENATAL_CHECKUP:
+      case ReminderType.NEONATAL_CHECKUP:
+        return NotificationType.APPOINTMENT;
+      default:
+        return NotificationType.INFO;
+    }
+  }
+
+  /**
+   * Create appointment reminders (called when appointment is created/updated)
+   */
+  async createAppointmentReminder(
+    userId: string,
+    appointmentId: string,
+    appointmentDate: string,
+    appointmentTime: string,
+    title: string,
+  ): Promise<Reminder> {
+    // Schedule reminder for 24 hours before appointment
+    const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime || '09:00'}`);
+    const reminderTime = new Date(appointmentDateTime.getTime() - 24 * 60 * 60 * 1000);
+
+    return this.create(userId, {
+      title: `Reminder: ${title}`,
+      body: `Your appointment is scheduled for ${appointmentDate} at ${appointmentTime || 'TBD'}`,
+      type: ReminderType.APPOINTMENT,
+      frequency: ReminderFrequency.ONCE,
+      scheduledFor: reminderTime.toISOString(),
+      appointmentId,
+      metadata: { appointmentDate, appointmentTime },
+    });
+  }
+
+  /**
+   * Create recurring daily reminders (e.g., iron tablets)
+   */
+  async createDailyReminder(
+    userId: string,
+    type: ReminderType,
+    title: string,
+    body: string,
+    startTime: Date,
+  ): Promise<Reminder> {
+    return this.create(userId, {
+      title,
+      body,
+      type,
+      frequency: ReminderFrequency.DAILY,
+      scheduledFor: startTime.toISOString(),
+      metadata: { autoGenerated: true },
+    });
+  }
+
+  /**
+   * Get reminders for a specific date range
+   */
+  async findByDateRange(userId: string, startDate: Date, endDate: Date): Promise<Reminder[]> {
+    return this.reminderRepo
+      .createQueryBuilder('r')
+      .where('r.userId = :userId', { userId })
+      .andWhere('r.scheduledFor BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .orderBy('r.scheduledFor', 'ASC')
       .getMany();
-
-    this.logger.log(`Found ${missedAppointments.length} missed appointments.`);
-
-    for (const appt of missedAppointments) {
-      // Cast to any to avoid importing AppointmentStatus here if it's not exported properly or easier this way
-      appt.status = 'no_show' as any; 
-      await this.appointmentRepo.save(appt);
-
-      const userId = await this._resolvePatientUserId(appt);
-      if (userId) {
-        await this.notificationsService.broadcast(
-          [userId],
-          '⚠️ Missed ANC Visit',
-          `You missed your ANC appointment "${appt.title}" scheduled on ${appt.date}. Please visit your clinic as soon as possible.`,
-          NotificationType.ALERT,
-        );
-        this.logger.log(`Marked missed and notified user ${userId} for appointment ${appt.id}`);
-      }
-    }
   }
 
-  // ── Manual trigger — send reminder for a specific appointment ────────────
+  /**
+   * Get statistics for reminders
+   */
+  async getStatistics(userId: string): Promise<{
+    total: number;
+    pending: number;
+    sent: number;
+    failed: number;
+    cancelled: number;
+  }> {
+    const total = await this.reminderRepo.count({ where: { userId } });
+    const pending = await this.reminderRepo.count({ where: { userId, status: ReminderStatus.PENDING } });
+    const sent = await this.reminderRepo.count({ where: { userId, status: ReminderStatus.SENT } });
+    const failed = await this.reminderRepo.count({ where: { userId, status: ReminderStatus.FAILED } });
+    const cancelled = await this.reminderRepo.count({ where: { userId, status: ReminderStatus.CANCELLED } });
 
-  async sendManualReminder(appointmentId: string): Promise<void> {
-    const appt = await this.appointmentRepo.findOne({ where: { id: appointmentId } });
-    if (!appt) return;
-
-    const userId = await this._resolvePatientUserId(appt);
-    if (!userId) return;
-
-    const time = appt.time ? ` at ${appt.time}` : '';
-    const location = appt.location ? ` at ${appt.location}` : '';
-
-    await this.notificationsService.broadcast(
-      [userId],
-      '📅 Appointment Reminder',
-      `Reminder: "${appt.title}"${time}${location} on ${appt.date}. Please don't miss your appointment.`,
-      NotificationType.APPOINTMENT,
-    );
-  }
-
-  // ── Helper ────────────────────────────────────────────────────────────────
-
-  private async _resolvePatientUserId(appt: Appointment): Promise<string | null> {
-    if (appt.prenatalPatientId) {
-      const p = await this.prenatalRepo.findOne({ where: { id: appt.prenatalPatientId } });
-      return p?.userId ?? null;
-    }
-    if (appt.neonatalPatientId) {
-      const p = await this.neonatalRepo.findOne({ where: { id: appt.neonatalPatientId } });
-      return p?.userId ?? null;
-    }
-    return null;
+    return { total, pending, sent, failed, cancelled };
   }
 }

@@ -14,6 +14,8 @@ export enum SocketEvent {
   PATIENT_REGISTERED  = 'patient:registered',
   APPOINTMENT_CHANGED = 'appointment:changed',
   EMERGENCY_ALERT     = 'emergency:alert',
+  REMINDER_SENT       = 'reminder:sent',
+  NOTIFICATION_RECEIVED = 'notification:received',
 }
 
 @WebSocketGateway({

@@ -50,11 +50,6 @@ export class HealthFacilitiesController {
     return this.service.getAllDistricts();
   }
 
-  @Get('regions-with-hierarchy')
-  getRegionsWithHierarchy() {
-    return this.service.getRegionsWithHierarchy();
-  }
-
   @Get('regions')
   getRegions() {
     return this.service.getRegions();
@@ -66,7 +61,10 @@ export class HealthFacilitiesController {
   }
 
   @Get('districts')
-  getDistricts(@Query('zone') zone: string) {
+  getDistricts(@Query('zone') zone: string, @Query('region') region?: string) {
+    if (region) {
+      return this.service.getDistrictsByRegionAndZone(region, zone);
+    }
     return this.service.getDistricts(zone);
   }
 

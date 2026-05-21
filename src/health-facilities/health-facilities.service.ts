@@ -42,6 +42,26 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
     return rows.map(r => r.region);
   }
 
+  /** Get all regions with their zones and districts */
+  async getRegionsWithHierarchy(): Promise<Array<{ region: string; zones: Array<{ zone: string; districts: string[] }> }>> {
+    const regions = await this.getRegions();
+    const result: Array<{ region: string; zones: Array<{ zone: string; districts: string[] }> }> = [];
+
+    for (const region of regions) {
+      const zones = await this.getZones(region);
+      const zoneData: Array<{ zone: string; districts: string[] }> = [];
+
+      for (const zone of zones) {
+        const districts = await this.getDistricts(zone);
+        zoneData.push({ zone, districts });
+      }
+
+      result.push({ region, zones: zoneData });
+    }
+
+    return result;
+  }
+
   /** All distinct districts across all regions */
   async getAllDistricts(): Promise<string[]> {
     const rows = await this.repo

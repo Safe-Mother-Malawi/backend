@@ -50,6 +50,11 @@ export class HealthFacilitiesController {
     return this.service.getAllDistricts();
   }
 
+  @Get('regions-with-hierarchy')
+  getRegionsWithHierarchy() {
+    return this.service.getRegionsWithHierarchy();
+  }
+
   @Get('regions')
   getRegions() {
     return this.service.getRegions();

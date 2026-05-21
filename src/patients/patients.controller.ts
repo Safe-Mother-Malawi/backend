@@ -59,8 +59,8 @@ export class PatientsController {
 
   @Get('prenatal/:id')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
-  findOnePrenatal(@Param('id') id: string) {
-    return this.patientsService.findOnePrenatal(id);
+  findOnePrenatal(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.patientsService.findOnePrenatal(id, user.id);
   }
 
   @Get('prenatal/:id/history')
@@ -116,8 +116,8 @@ export class PatientsController {
 
   @Get('neonatal/:id')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
-  findOneNeonatal(@Param('id') id: string) {
-    return this.patientsService.findOneNeonatal(id);
+  findOneNeonatal(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.patientsService.findOneNeonatal(id, user.id);
   }
 
   @Get('neonatal/:id/history')

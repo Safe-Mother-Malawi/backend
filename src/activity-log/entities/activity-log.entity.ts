@@ -5,27 +5,55 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 export enum ActivityAction {
+  // User actions
   USER_REGISTERED   = 'user.registered',
   USER_LOGIN        = 'user.login',
   USER_LOGOUT       = 'user.logout',
+  USER_CREATED      = 'user.created',
+  USER_DELETED      = 'user.deleted',
+  USER_ACTIVATED    = 'user.activated',
+  USER_DEACTIVATED  = 'user.deactivated',
+  
+  // Patient actions
   PATIENT_CREATED   = 'patient.created',
   PATIENT_UPDATED   = 'patient.updated',
   PATIENT_DELETED   = 'patient.deleted',
+  PATIENT_VIEWED    = 'patient.viewed',
   PATIENT_LINKED    = 'patient.linked',
+  
+  // Risk assessment actions
   RISK_SUBMITTED    = 'risk.submitted',
   RISK_HIGH_FLAGGED = 'risk.high_flagged',
+  
+  // Health check actions
   HEALTH_CHECK_SUBMITTED = 'health_check.submitted',
   HEALTH_CHECK_DELETED   = 'health_check.deleted',
+  
+  // Appointment actions
   APPOINTMENT_CREATED   = 'appointment.created',
   APPOINTMENT_UPDATED   = 'appointment.updated',
   APPOINTMENT_CANCELLED = 'appointment.cancelled',
+  
+  // Alert actions
   ALERT_CREATED  = 'alert.created',
   ALERT_ATTENDED = 'alert.attended',
+  
+  // Vaccine actions
   VACCINE_GIVEN  = 'vaccine.given',
+  
+  // Feeding/Sleep actions
   FEEDING_LOGGED = 'feeding.logged',
   SLEEP_LOGGED   = 'sleep.logged',
-  USER_ACTIVATED   = 'user.activated',
-  USER_DEACTIVATED = 'user.deactivated',
+  
+  // Health facility actions
+  FACILITY_CREATED = 'facility.created',
+  FACILITY_UPDATED = 'facility.updated',
+  FACILITY_DELETED = 'facility.deleted',
+  
+  // Report actions
+  REPORT_GENERATED = 'report.generated',
+  REPORT_DOWNLOADED = 'report.downloaded',
+  REPORT_EXPORTED = 'report.exported',
 }
 
 @Entity('activity_logs')

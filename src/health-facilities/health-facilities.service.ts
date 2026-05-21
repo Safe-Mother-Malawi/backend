@@ -3,12 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthFacility } from './entities/health-facility.entity';
 import { FACILITY_SEED } from './seed/facilities.seed';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import { ActivityAction } from '../activity-log/entities/activity-log.entity';
 
 @Injectable()
 export class HealthFacilitiesService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(HealthFacility)
     private readonly repo: Repository<HealthFacility>,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   /** Seed on first boot if table is empty, or add missing districts */
@@ -47,6 +50,16 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
       .orderBy('f.district', 'ASC')
       .getRawMany<{ district: string }>();
     return rows.map(r => r.district);
+  }
+
+  /** All distinct zones across all regions */
+  async getAllZones(): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('f')
+      .select('DISTINCT f.zone', 'zone')
+      .orderBy('f.zone', 'ASC')
+      .getRawMany<{ zone: string }>();
+    return rows.map(r => r.zone);
   }
 
   /** Zones for a region */
@@ -126,7 +139,17 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
   /** Create a new facility */
   async create(data: Partial<HealthFacility>): Promise<HealthFacility> {
     const facility = this.repo.create(data);
-    return this.repo.save(facility);
+    const saved = await this.repo.save(facility);
+    
+    await this.activityLog.log({
+      action: ActivityAction.FACILITY_CREATED,
+      description: `Facility created: ${saved.facilityName}`,
+      resourceType: 'facility',
+      resourceId: saved.id,
+      meta: { facilityName: saved.facilityName, region: saved.region, district: saved.district },
+    });
+    
+    return saved;
   }
 
   /** Find facility by ID */
@@ -138,14 +161,50 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
   async update(id: string, data: Partial<HealthFacility>): Promise<HealthFacility | null> {
     const facility = await this.repo.findOne({ where: { id } });
     if (!facility) return null;
+    
+    // Track changes for audit log
+    const changes: Record<string, { old: unknown; new: unknown }> = {};
+    for (const key of Object.keys(data)) {
+      if (facility[key] !== data[key]) {
+        changes[key] = { old: facility[key], new: data[key] };
+      }
+    }
+    
     Object.assign(facility, data);
-    return this.repo.save(facility);
+    const updated = await this.repo.save(facility);
+    
+    // Log the update with change tracking
+    await this.activityLog.log({
+      action: ActivityAction.FACILITY_UPDATED,
+      description: `Facility updated: ${updated.facilityName}`,
+      resourceType: 'facility',
+      resourceId: updated.id,
+      meta: { facilityName: updated.facilityName, changes },
+    });
+    
+    return updated;
   }
 
   /** Delete a facility */
   async delete(id: string): Promise<boolean> {
+    const facility = await this.repo.findOne({ where: { id } });
+    if (!facility) return false;
+    
     const result = await this.repo.delete(id);
-    return (result.affected ?? 0) > 0;
+    const deleted = (result.affected ?? 0) > 0;
+    
+    if (deleted) {
+      // Log the deletion with facility details
+      await this.activityLog.log({
+        action: ActivityAction.FACILITY_DELETED,
+        description: `Facility deleted: ${facility.facilityName}`,
+        resourceType: 'facility',
+        resourceId: id,
+        meta: { facilityName: facility.facilityName, region: facility.region, district: facility.district },
+      });
+    }
+    
+    return deleted;
   }
 
   /** Get all distinct facility types */

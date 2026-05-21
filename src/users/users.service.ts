@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import { ActivityAction } from '../activity-log/entities/activity-log.entity';
 import * as bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10;
@@ -14,6 +16,7 @@ export class UsersService {
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   // ── Create ────────────────────────────────────────────────────────────────
@@ -98,7 +101,18 @@ export class UsersService {
       securityAnswerHash,
     });
 
-    return this.usersRepo.save(user);
+    const saved = await this.usersRepo.save(user);
+    
+    // Log user creation
+    await this.activityLog.log({
+      action: ActivityAction.USER_CREATED,
+      description: `User created: ${saved.fullName} (${saved.role})`,
+      resourceType: 'user',
+      resourceId: saved.id,
+      meta: { fullName: saved.fullName, role: saved.role, phone: saved.phone, email: saved.email },
+    });
+    
+    return saved;
   }
 
   // ── Finders ───────────────────────────────────────────────────────────────
@@ -227,13 +241,35 @@ export class UsersService {
   }
 
   async setActive(id: string, isActive: boolean): Promise<User> {
+    const user = await this.findByIdOrThrow(id);
     await this.usersRepo.update(id, { isActive });
-    return this.findByIdOrThrow(id);
+    const updated = await this.findByIdOrThrow(id);
+    
+    // Log user activation/deactivation
+    const action = isActive ? ActivityAction.USER_ACTIVATED : ActivityAction.USER_DEACTIVATED;
+    await this.activityLog.log({
+      action,
+      description: `User ${isActive ? 'activated' : 'deactivated'}: ${updated.fullName}`,
+      resourceType: 'user',
+      resourceId: updated.id,
+      meta: { fullName: updated.fullName, role: updated.role, isActive },
+    });
+    
+    return updated;
   }
 
   async deleteUser(id: string): Promise<void> {
     const user = await this.findByIdOrThrow(id);
     await this.usersRepo.remove(user);
+    
+    // Log user deletion
+    await this.activityLog.log({
+      action: ActivityAction.USER_DELETED,
+      description: `User deleted: ${user.fullName} (${user.role})`,
+      resourceType: 'user',
+      resourceId: user.id,
+      meta: { fullName: user.fullName, role: user.role, phone: user.phone, email: user.email },
+    });
   }
 
   async touchLastActive(id: string): Promise<void> {

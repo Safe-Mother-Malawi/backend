@@ -57,7 +57,7 @@ export class ReportsService {
     const saved = await this.repo.save(report);
 
     await this.activityLog.log({
-      action: ActivityAction.RISK_SUBMITTED, // reuse closest action
+      action: ActivityAction.REPORT_GENERATED,
       actorId: generatedBy.id,
       description: `Report generated: ${name}`,
       resourceType: 'report',
@@ -101,6 +101,15 @@ export class ReportsService {
       throw new ForbiddenException('You can only delete your own reports.');
     }
     await this.repo.remove(report);
+    
+    // Log report deletion
+    await this.activityLog.log({
+      action: ActivityAction.REPORT_DOWNLOADED, // Using DOWNLOADED as closest action for deletion tracking
+      actorId: user.id,
+      description: `Report deleted: ${report.name}`,
+      resourceType: 'report',
+      resourceId: report.id,
+    });
   }
 
   // ── Data Export ───────────────────────────────────────────────────────────

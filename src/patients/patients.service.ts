@@ -280,12 +280,24 @@ export class PatientsService {
     return qb.getMany();
   }
 
-  async findOnePrenatal(id: string): Promise<PrenatalPatient> {
+  async findOnePrenatal(id: string, viewedBy?: string): Promise<PrenatalPatient> {
     const patient = await this.prenatalRepo.findOne({
       where: { id },
       relations: ['registeredBy'],
     });
     if (!patient) throw new NotFoundException('Prenatal patient not found.');
+    
+    // Log patient view if viewedBy is provided
+    if (viewedBy) {
+      await this.activityLog.log({
+        action: ActivityAction.PATIENT_VIEWED,
+        actorId: viewedBy,
+        description: `Prenatal patient ${patient.fullName} viewed`,
+        resourceType: 'prenatal_patient',
+        resourceId: id,
+      });
+    }
+    
     return patient;
   }
 
@@ -435,12 +447,24 @@ export class PatientsService {
     return qb.getMany();
   }
 
-  async findOneNeonatal(id: string): Promise<NeonatalPatient> {
+  async findOneNeonatal(id: string, viewedBy?: string): Promise<NeonatalPatient> {
     const patient = await this.neonatalRepo.findOne({
       where: { id },
       relations: ['registeredBy'],
     });
     if (!patient) throw new NotFoundException('Neonatal patient not found.');
+    
+    // Log patient view if viewedBy is provided
+    if (viewedBy) {
+      await this.activityLog.log({
+        action: ActivityAction.PATIENT_VIEWED,
+        actorId: viewedBy,
+        description: `Neonatal patient ${patient.babyName} viewed`,
+        resourceType: 'neonatal_patient',
+        resourceId: id,
+      });
+    }
+    
     return patient;
   }
 

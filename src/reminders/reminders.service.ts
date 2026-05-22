@@ -210,9 +210,15 @@ export class RemindersService {
         reminder.scheduledFor,
         reminder.frequency,
       );
-      reminder.nextReminderAt = nextReminderAt;
-      reminder.status = ReminderStatus.PENDING;
-      reminder.scheduledFor = nextReminderAt;
+      if (nextReminderAt) {
+        reminder.nextReminderAt = nextReminderAt;
+        reminder.status = ReminderStatus.PENDING;
+        reminder.scheduledFor = nextReminderAt;
+      } else {
+        reminder.status = ReminderStatus.SENT;
+      }
+    } else {
+      reminder.status = ReminderStatus.SENT;
     }
 
     await this.reminderRepo.save(reminder);
@@ -231,7 +237,7 @@ export class RemindersService {
   /**
    * Calculate next reminder time based on frequency
    */
-  private calculateNextReminderTime(currentTime: Date, frequency: ReminderFrequency): Date {
+  private calculateNextReminderTime(currentTime: Date, frequency: ReminderFrequency): Date | null {
     const next = new Date(currentTime);
 
     switch (frequency) {

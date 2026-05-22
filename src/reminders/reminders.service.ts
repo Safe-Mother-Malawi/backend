@@ -9,6 +9,7 @@ import { NotificationType } from '../notifications/entities/notification.entity'
 import { User } from '../users/entities/user.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { EventsGateway, SocketEvent } from '../events/events.gateway';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 
 @Injectable()
 export class RemindersService {
@@ -22,6 +23,7 @@ export class RemindersService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
+    private readonly pushNotificationsService: PushNotificationsService,
     private readonly eventsGateway: EventsGateway,
   ) {}
 
@@ -174,13 +176,29 @@ export class RemindersService {
    * Send a single reminder
    */
   private async sendReminder(reminder: Reminder): Promise<void> {
-    // Create notification
+    // Create in-app notification
     await this.notificationsService.create({
       userId: reminder.userId,
       title: reminder.title,
       body: reminder.body,
       type: this.mapReminderTypeToNotificationType(reminder.type),
     });
+
+    // Send push notification
+    try {
+      await this.pushNotificationsService.sendToUser(
+        reminder.userId,
+        reminder.title,
+        reminder.body,
+        {
+          reminderId: reminder.id,
+          type: reminder.type,
+          scheduledFor: reminder.scheduledFor.toISOString(),
+        },
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to send push notification for reminder ${reminder.id}:`, error);
+    }
 
     // Update reminder status
     reminder.status = ReminderStatus.SENT;

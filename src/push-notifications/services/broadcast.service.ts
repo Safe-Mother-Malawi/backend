@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { User, UserRole } from '../../users/entities/user.entity';
 import { PushNotificationsService } from '../push-notifications.service';
 import { SendBroadcastDto } from '../dto/send-broadcast.dto';
 import { NotificationType } from '../enums/notification-type.enum';
@@ -61,9 +61,21 @@ export class BroadcastService {
     try {
       this.logger.log(`Sending broadcast to ${role} users...`);
 
+      // Map role string to UserRole enum
+      const roleMap: Record<string, UserRole> = {
+        patient: UserRole.PRENATAL, // or NEONATAL
+        clinician: UserRole.CLINICIAN,
+        admin: UserRole.ADMIN,
+      };
+
+      const userRole = roleMap[role];
+      if (!userRole) {
+        throw new BadRequestException(`Invalid role: ${role}`);
+      }
+
       // Get users by role
       const users = await this.userRepo.find({
-        where: { role, isActive: true },
+        where: { role: userRole, isActive: true },
         select: ['id'],
       });
 
@@ -92,7 +104,7 @@ export class BroadcastService {
 
       // Get users by facility
       const users = await this.userRepo.find({
-        where: { facilityId, isActive: true },
+        where: { facility: facilityId, isActive: true },
         select: ['id'],
       });
 
@@ -250,16 +262,16 @@ export class BroadcastService {
       // Count by facility
       const facilityStats = await this.userRepo
         .createQueryBuilder('user')
-        .select('user.facilityId', 'facilityId')
+        .select('user.facility', 'facility')
         .addSelect('COUNT(*)', 'count')
         .where('user.isActive = :isActive', { isActive: true })
-        .groupBy('user.facilityId')
+        .groupBy('user.facility')
         .getRawMany();
 
       const usersByFacility: Record<string, number> = {};
       facilityStats.forEach((stat) => {
-        if (stat.facilityId) {
-          usersByFacility[stat.facilityId] = parseInt(stat.count, 10);
+        if (stat.facility) {
+          usersByFacility[stat.facility] = parseInt(stat.count, 10);
         }
       });
 

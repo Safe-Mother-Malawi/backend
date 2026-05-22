@@ -13,7 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { PushNotificationsService } from './push-notifications.service';
 import { BroadcastService } from './services/broadcast.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
@@ -76,7 +76,7 @@ export class PushNotificationsController {
    */
   @Post('broadcast/all')
   @UseGuards(RolesGuard)
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async sendBroadcastToAll(
     @CurrentUser() user: User,
@@ -90,7 +90,7 @@ export class PushNotificationsController {
    */
   @Post('broadcast/role/:role')
   @UseGuards(RolesGuard)
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async sendBroadcastByRole(
     @CurrentUser() user: User,
@@ -105,7 +105,7 @@ export class PushNotificationsController {
    */
   @Post('broadcast/facility/:facilityId')
   @UseGuards(RolesGuard)
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async sendBroadcastByFacility(
     @CurrentUser() user: User,
@@ -120,7 +120,7 @@ export class PushNotificationsController {
    */
   @Post('broadcast/users')
   @UseGuards(RolesGuard)
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async sendBroadcastToUsers(
     @CurrentUser() user: User,
@@ -137,7 +137,7 @@ export class PushNotificationsController {
    */
   @Post('broadcast/user/:userId')
   @UseGuards(RolesGuard)
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async sendBroadcastToUser(
     @CurrentUser() user: User,
@@ -152,7 +152,7 @@ export class PushNotificationsController {
    */
   @Get('broadcast/stats')
   @UseGuards(RolesGuard)
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   async getBroadcastStats() {
     return this.broadcastService.getBroadcastStats();
   }

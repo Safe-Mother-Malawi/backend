@@ -61,23 +61,30 @@ export class BroadcastService {
     try {
       this.logger.log(`Sending broadcast to ${role} users...`);
 
-      // Map role string to UserRole enum
-      const roleMap: Record<string, UserRole> = {
-        patient: UserRole.PRENATAL, // or NEONATAL
-        clinician: UserRole.CLINICIAN,
-        admin: UserRole.ADMIN,
-      };
+      let users: User[] = [];
 
-      const userRole = roleMap[role];
-      if (!userRole) {
+      if (role === 'patient') {
+        // Get both prenatal and neonatal users
+        users = await this.userRepo.find({
+          where: [
+            { role: UserRole.PRENATAL, isActive: true },
+            { role: UserRole.NEONATAL, isActive: true },
+          ],
+          select: ['id'],
+        });
+      } else if (role === 'clinician') {
+        users = await this.userRepo.find({
+          where: { role: UserRole.CLINICIAN, isActive: true },
+          select: ['id'],
+        });
+      } else if (role === 'admin') {
+        users = await this.userRepo.find({
+          where: { role: UserRole.ADMIN, isActive: true },
+          select: ['id'],
+        });
+      } else {
         throw new BadRequestException(`Invalid role: ${role}`);
       }
-
-      // Get users by role
-      const users = await this.userRepo.find({
-        where: { role: userRole, isActive: true },
-        select: ['id'],
-      });
 
       if (users.length === 0) {
         throw new BadRequestException(`No active ${role} users found`);

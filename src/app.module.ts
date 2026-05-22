@@ -28,6 +28,7 @@ import { EventsModule } from './events/events.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { HealthCheckHistoryModule } from './health-check-history/health-check-history.module';
 import { PushNotificationsModule } from './push-notifications/push-notifications.module';
+import { FirebaseModule } from './firebase/firebase.module';
 
 // ── Entities ──────────────────────────────────────────────────────────────────
 import { User } from './users/entities/user.entity';
@@ -110,6 +111,7 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
     EventsModule,
     RemindersModule,
     HealthCheckHistoryModule,
+    FirebaseModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,56 +1,22 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as admin from 'firebase-admin';
 import { DeviceToken } from './entities/device-token.entity';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+import { FirebaseService } from '../firebase/firebase.service';
 
 @Injectable()
 export class PushNotificationsService {
   private readonly logger = new Logger(PushNotificationsService.name);
-  private firebaseApp: admin.app.App;
 
   constructor(
     @InjectRepository(DeviceToken)
     private readonly deviceTokenRepo: Repository<DeviceToken>,
     private readonly notificationsService: NotificationsService,
-  ) {
-    this.initializeFirebase();
-  }
-
-  /**
-   * Initialize Firebase Admin SDK
-   */
-  private initializeFirebase(): void {
-    try {
-      // Check if Firebase is already initialized
-      if (admin.apps.length === 0) {
-        // Initialize with service account from environment
-        const serviceAccount = JSON.parse(
-          process.env.FIREBASE_SERVICE_ACCOUNT || '{}',
-        );
-
-        if (Object.keys(serviceAccount).length === 0) {
-          this.logger.warn(
-            'Firebase service account not configured. Push notifications will be disabled.',
-          );
-          return;
-        }
-
-        this.firebaseApp = admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-
-        this.logger.log('Firebase Admin SDK initialized successfully');
-      } else {
-        this.firebaseApp = admin.app();
-      }
-    } catch (error) {
-      this.logger.error('Failed to initialize Firebase:', error);
-    }
-  }
+    private readonly firebaseService: FirebaseService,
+  ) {}
 
   /**
    * Register a device token for a user
@@ -166,7 +132,7 @@ export class PushNotificationsService {
     body: string,
     data?: Record<string, string>,
   ): Promise<void> {
-    if (!this.firebaseApp) {
+    if (!this.firebaseService.isInitialized()) {
       this.logger.warn('Firebase not initialized. Skipping push notification.');
       return;
     }
@@ -176,6 +142,8 @@ export class PushNotificationsService {
     }
 
     try {
+      const messaging = this.firebaseService.getMessaging();
+
       const message = {
         notification: {
           title,
@@ -211,10 +179,10 @@ export class PushNotificationsService {
       };
 
       // Send to multiple tokens
-      const response = await admin.messaging().sendMulticast({
+      const response = await messaging.sendMulticast({
         ...message,
         tokens,
-      });
+      } as any);
 
       this.logger.log(
         `Push notification sent: ${response.successCount} successful, ${response.failureCount} failed`,

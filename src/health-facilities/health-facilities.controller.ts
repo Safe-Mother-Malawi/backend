@@ -1,13 +1,14 @@
 import {
   Controller, Get, Post, Body, Query, Options, Param, Put, Delete,
-  UseGuards, HttpCode, HttpStatus, NotFoundException,
+  UseGuards, HttpCode, HttpStatus, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { HealthFacilitiesService } from './health-facilities.service';
 import { HealthFacility } from './entities/health-facility.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../users/entities/user.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { User, UserRole } from '../users/entities/user.entity';
 
 @Controller('health-facilities')
 export class HealthFacilitiesController {
@@ -121,6 +122,89 @@ export class HealthFacilitiesController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() body: Partial<HealthFacility>) {
     return this.service.create(body);
+  }
+
+  // ── DHO endpoints — view and manage facilities in their district ──────────
+
+  @Get('dho/my-facilities')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async getDHOFacilities(@CurrentUser() user: User) {
+    if (user.role !== UserRole.DHO) {
+      throw new BadRequestException('Only DHOs can access this endpoint');
+    }
+    if (!user.district) {
+      throw new BadRequestException('DHO must have a district assigned');
+    }
+    return this.service.getFacilitiesByDistrict(user.district);
+  }
+
+  @Get('dho/my-facilities/stats')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async getDHOFacilitiesStats(@CurrentUser() user: User) {
+    if (user.role !== UserRole.DHO) {
+      throw new BadRequestException('Only DHOs can access this endpoint');
+    }
+    if (!user.district) {
+      throw new BadRequestException('DHO must have a district assigned');
+    }
+    return this.service.getFacilitiesStats(user.district);
+  }
+
+  @Post('dho/facilities')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DHO, UserRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async createFacilityAsDHO(
+    @CurrentUser() user: User,
+    @Body() body: Partial<HealthFacility>,
+  ) {
+    if (user.role === UserRole.DHO && user.district !== body.district) {
+      throw new BadRequestException('DHO can only create facilities in their own district');
+    }
+    return this.service.create(body);
+  }
+
+  @Put('dho/facilities/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DHO, UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async updateFacilityAsDHO(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() body: Partial<HealthFacility>,
+  ) {
+    const facility = await this.service.findById(id);
+    if (!facility) {
+      throw new NotFoundException(`Health facility with ID ${id} not found`);
+    }
+    if (user.role === UserRole.DHO && user.district !== facility.district) {
+      throw new BadRequestException('DHO can only update facilities in their own district');
+    }
+    return this.service.update(id, body);
+  }
+
+  @Delete('dho/facilities/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DHO, UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async deleteFacilityAsDHO(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+  ) {
+    const facility = await this.service.findById(id);
+    if (!facility) {
+      throw new NotFoundException(`Health facility with ID ${id} not found`);
+    }
+    if (user.role === UserRole.DHO && user.district !== facility.district) {
+      throw new BadRequestException('DHO can only delete facilities in their own district');
+    }
+    const result = await this.service.delete(id);
+    if (!result) {
+      throw new NotFoundException(`Health facility with ID ${id} not found`);
+    }
+    return { message: 'Health facility deleted successfully' };
   }
 
   // ── Get facility by ID (must come after specific routes) ──────────────────

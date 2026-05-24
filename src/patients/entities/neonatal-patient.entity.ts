@@ -29,8 +29,8 @@ export class NeonatalPatient {
   @Column({ type: 'varchar', length: 100 })
   babyName: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  babyGender: string; // 'Male', 'Female'
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  babyGender: string | null; // 'Male', 'Female'
 
   @Column({ type: 'timestamp' })
   dateOfBirth: Date;
@@ -161,24 +161,24 @@ export class NeonatalPatient {
 
   // Mother Information
   @Column({ type: 'varchar', length: 100, nullable: true })
-  motherName: string;
+  motherName: string | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  motherPhone: string;
+  motherPhone: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  motherEmail: string;
+  motherEmail: string | null;
 
   // User Link
   @Column({ type: 'uuid', nullable: true })
-  userId: string;
+  userId: string | null;
 
   // Location Information
   @Column({ type: 'varchar', length: 100, nullable: true })
-  district: string;
+  district: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  facilityName: string;
+  facilityName: string | null;
 
   // Patient Status
   @Column({ type: 'varchar', length: 50, default: 'alive' })

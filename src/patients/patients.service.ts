@@ -118,12 +118,12 @@ export class PatientsService {
         const patientData: Partial<NeonatalPatient> = {
           motherName:      user.fullName,
           motherPhone:     user.phone,
-          motherEmail:     user.email,
-          district:        user.district,
-          facilityName:    user.facilityName,
+          motherEmail:     user.email ?? undefined,
+          district:        user.district ?? undefined,
+          facilityName:    user.facilityName ?? undefined,
           babyName:        user.babyName ?? 'Unknown',
           dateOfBirth:     user.babyDob ? new Date(user.babyDob) : new Date(),
-          babyGender:      user.babyGender,
+          babyGender:      user.babyGender ?? undefined,
           birthWeight:     user.babyBirthWeight ? parseFloat(user.babyBirthWeight) : undefined,
           userId:          user.id,
         };
@@ -333,12 +333,12 @@ export class PatientsService {
     const patientData: Partial<NeonatalPatient> = {
       motherName: dto.motherName,
       motherPhone: dto.motherPhone,
-      motherEmail: dto.motherEmail || undefined,
-      district: dto.district,
-      facilityName: dto.facilityName,
+      motherEmail: dto.motherEmail ?? undefined,
+      district: dto.district ?? undefined,
+      facilityName: dto.facilityName ?? undefined,
       babyName: dto.babyName,
       dateOfBirth: new Date(dto.babyDob),
-      babyGender: dto.babyGender,
+      babyGender: dto.babyGender ?? undefined,
       birthWeight: dto.babyBirthWeight ? parseFloat(dto.babyBirthWeight) : undefined,
     };
 

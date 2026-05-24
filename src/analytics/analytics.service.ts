@@ -49,12 +49,25 @@ export class AnalyticsService {
     const [totalAppointments, completedAppointments, missedAppointments] = await Promise.all([
       this.appointmentRepo.count({ where: { type: AppointmentType.ANC } }),
       this.appointmentRepo.count({ where: { type: AppointmentType.ANC, status: AppointmentStatus.COMPLETED } }),
-      this.appointmentRepo.count({ where: { type: AppointmentType.ANC, status: AppointmentStatus.NO_SHOW as any } }), // Cast to bypass TS if needed
+      this.appointmentRepo.count({ where: { type: AppointmentType.ANC, status: AppointmentStatus.NO_SHOW as any } }),
     ]);
+
+    // Calculate delivery outcomes
+    const deliveredMothers = await this.prenatalRepo.count({
+      where: { patientStatus: 'delivered' }
+    });
+    
+    const liveBirths = await this.prenatalRepo.count({
+      where: { deliveryOutcome: 'live-birth' }
+    });
+
+    const stillbirths = await this.prenatalRepo.count({
+      where: { deliveryOutcome: 'stillbirth' }
+    });
 
     const ancAttendanceRate = totalAppointments > 0 ? Math.round((completedAppointments / totalAppointments) * 100) : 0;
     const missedVisitsRate = totalAppointments > 0 ? Math.round((missedAppointments / totalAppointments) * 100) : 0;
-    const ancCompletionRate = Math.min(100, ancAttendanceRate + 5); // Rough approximation of facility completion
+    const ancCompletionRate = Math.min(100, ancAttendanceRate + 5);
 
     return {
       totalClinicians,
@@ -64,8 +77,12 @@ export class AnalyticsService {
       totalNeonatal,
       highRiskCases: highRiskCount + criticalCount,
       activeAlerts,
-      // Added DHO Key Indicators
-      firstTrimesterRate: 42, // Would typically be calculated from gestational age at registration
+      // Delivery Outcomes
+      deliveredMothers,
+      liveBirths,
+      stillbirths,
+      // DHO Key Indicators
+      firstTrimesterRate: 42,
       ancAttendanceRate,
       missedVisitsRate,
       ancCompletionRate,
@@ -181,11 +198,20 @@ export class AnalyticsService {
   }
 
   async getNeonatalAnalytics() {
-    // 1. Live Births
-    const liveBirths = await this.neonatalRepo.count();
+    // 1. Live Births (active neonates)
+    const liveBirths = await this.neonatalRepo.count({
+      where: { patientStatus: 'alive' }
+    });
 
-    // 2. Low birth weight (< 2.5 kg)
-    const allNeonates = await this.neonatalRepo.find({ select: ['babyBirthWeight', 'gestationalAgeAtBirth'] });
+    // 2. Neonatal Deaths (from patientStatus field)
+    const neonatalDeaths = await this.neonatalRepo.count({
+      where: { patientStatus: 'deceased' }
+    });
+
+    // 3. Low birth weight (< 2.5 kg)
+    const allNeonates = await this.neonatalRepo.find({
+      select: ['babyBirthWeight', 'gestationalAgeAtBirth', 'patientStatus']
+    });
     let lbwCount = 0;
     let pretermCount = 0;
     
@@ -198,49 +224,72 @@ export class AnalyticsService {
         pretermCount++;
       }
     }
-    const lowBirthWeightRate = liveBirths > 0 ? Math.round((lbwCount / liveBirths) * 100) : 0;
-    const pretermBirthsRate = liveBirths > 0 ? Math.round((pretermCount / liveBirths) * 100) : 0;
+    
+    const totalBirths = allNeonates.length;
+    const lowBirthWeightRate = totalBirths > 0 ? Math.round((lbwCount / totalBirths) * 100) : 0;
+    const pretermBirthsRate = totalBirths > 0 ? Math.round((pretermCount / totalBirths) * 100) : 0;
 
-    // 3. Neonatal deaths (mocked as 0 unless patientStatus is tracked)
-    const neonatalDeaths = 0; 
+    // 4. Neonatal Mortality Rate
+    const neonatalMortalityRate = totalBirths > 0 ? Math.round((neonatalDeaths / totalBirths) * 100) : 0;
 
-    // 4. Immunization coverage (via raw query since Vaccine is not injected)
-    let immunizationCoverage = 85; // fallback
+    // 5. Immunization coverage (from vaccinesGiven field)
+    let immunizationCoverage = 0;
     try {
-      const vaxStats = await this.neonatalRepo.manager.query(`
-        SELECT 
-          COUNT(*) as total, 
-          SUM(CASE WHEN status = 'given' THEN 1 ELSE 0 END) as given 
-        FROM vaccines
-      `);
-      if (vaxStats.length > 0 && vaxStats[0].total > 0) {
-        immunizationCoverage = Math.round((parseInt(vaxStats[0].given) / parseInt(vaxStats[0].total)) * 100);
-      }
+      const neonatesWithVaccines = await this.neonatalRepo
+        .createQueryBuilder('n')
+        .where('n.vaccinesGiven IS NOT NULL')
+        .andWhere("jsonb_array_length(n.vaccinesGiven) > 0")
+        .getCount();
+      
+      immunizationCoverage = totalBirths > 0 
+        ? Math.round((neonatesWithVaccines / totalBirths) * 100) 
+        : 0;
     } catch(e) {
-      // Table might not exist or be empty
+      // Fallback if query fails
+      immunizationCoverage = 0;
     }
 
-    // 5. Neonatal infections (from alerts where patientType='neonatal' and symptoms contain infection/fever)
+    // 6. Neonatal infections (from healthComplications field)
     let neonatalInfections = 0;
     try {
-      const infectionAlerts = await this.neonatalRepo.manager.query(`
+      const neonatesWithInfections = await this.neonatalRepo
+        .createQueryBuilder('n')
+        .where('n.healthComplications IS NOT NULL')
+        .andWhere("n.healthComplications::text ILIKE '%infection%'")
+        .getCount();
+      neonatalInfections = neonatesWithInfections;
+    } catch(e) {
+      // Fallback to alert-based count
+      const infectionAlerts = await this.alertsRepo.manager.query(`
         SELECT COUNT(*) as count 
         FROM alerts 
         WHERE "patientType" = 'neonatal' 
-        AND ("symptoms"::text ILIKE '%infection%' OR "symptoms"::text ILIKE '%fever%' OR "symptoms"::text ILIKE '%pus%')
+        AND ("symptoms"::text ILIKE '%infection%' OR "symptoms"::text ILIKE '%fever%')
       `);
       if (infectionAlerts.length > 0) {
         neonatalInfections = parseInt(infectionAlerts[0].count) || 0;
       }
-    } catch(e) {}
+    }
+
+    // 7. Neonatal health status distribution
+    const healthStatusDist = await this.neonatalRepo
+      .createQueryBuilder('n')
+      .select('n.currentHealthStatus', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('n.currentHealthStatus IS NOT NULL')
+      .groupBy('n.currentHealthStatus')
+      .getRawMany();
 
     return {
       liveBirths,
       neonatalDeaths,
+      neonatalMortalityRate,
       lowBirthWeightRate,
       pretermBirthsRate,
       neonatalInfections,
       immunizationCoverage,
+      healthStatusDistribution: healthStatusDist,
+      totalBirths,
     };
   }
 

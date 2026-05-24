@@ -1,50 +1,173 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+  JoinColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { PrenatalPatient } from './prenatal-patient.entity';
+import { NeonatalVisit } from './neonatal-visit.entity';
 
 @Entity('neonatal_patients')
 export class NeonatalPatient {
-  @PrimaryGeneratedColumn('uuid') id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ type: 'varchar' }) babyName: string;
-  @Column({ type: 'varchar' }) babyDob: string;
-  @Column({ type: 'varchar', nullable: true }) babyGender: string | null;
-  @Column({ type: 'varchar', nullable: true }) babyBirthWeight: string | null;
-  @Column({ type: 'varchar', nullable: true }) birthLength: string | null;
-  @Column({ type: 'varchar', nullable: true }) headCircumference: string | null;
-  @Column({ type: 'int', nullable: true }) apgarScore: number | null;
-  @Column({ type: 'int', nullable: true }) gestationalAgeAtBirth: number | null;
+  @ManyToOne(() => PrenatalPatient, (prenatal) => prenatal.neonatalRecords, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'prenatal_patient_id' })
+  prenatalPatient: PrenatalPatient;
 
-  @Column({ type: 'varchar', nullable: true }) deliveryMethod: string | null;
-  @Column({ type: 'varchar', nullable: true }) placeOfBirth: string | null;
-  @Column({ type: 'varchar', nullable: true }) birthAttendant: string | null;
-  @Column({ type: 'text', nullable: true }) complicationsDuringDelivery: string | null;
+  @Column({ name: 'prenatal_patient_id' })
+  prenatalPatientId: string;
 
-  @Column({ type: 'varchar' }) motherName: string;
-  @Column({ type: 'varchar' }) motherPhone: string;
-  @Column({ type: 'varchar', nullable: true }) motherEmail: string | null;
-  @Column({ type: 'varchar', nullable: true }) motherAge: string | null;
-  @Column({ type: 'varchar', nullable: true }) nationality: string | null;
-  @Column({ type: 'varchar', nullable: true }) district: string | null;
-  @Column({ type: 'varchar', nullable: true }) village: string | null;
-  @Column({ type: 'varchar', nullable: true, name: 'healthCentre' }) facilityName: string | null;
-  @Column({ type: 'varchar', nullable: true }) emergencyContact: string | null;
+  // Baby Information
+  @Column({ type: 'varchar', length: 100 })
+  babyName: string;
 
-  @Column({ type: 'varchar', nullable: true }) registeredById: string | null;
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'registeredById' })
-  registeredBy: User | null;
+  @Column({ type: 'varchar', length: 50 })
+  babyGender: string; // 'Male', 'Female'
 
-  @Column({ type: 'varchar', nullable: true }) prenatalPatientId: string | null;
+  @Column({ type: 'timestamp' })
+  dateOfBirth: Date;
 
-  @Column({ type: 'varchar', nullable: true }) userId: string | null;
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'userId' })
-  user: User | null;
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  birthWeight: number; // in kg
 
-  @CreateDateColumn() createdAt: Date;
-  @UpdateDateColumn() updatedAt: Date;
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  birthLength: number; // in cm
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  headCircumference: number; // in cm
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  deliveryMode: string; // 'Vaginal', 'Cesarean', 'Assisted'
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  deliveryPlace: string; // 'Health facility', 'Home', 'Other'
+
+  @Column({ type: 'text', nullable: true })
+  deliveryComplications: string;
+
+  // Neonatal Screening Results
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  apgarScore1Min: string; // Apgar score at 1 minute
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  apgarScore5Min: string; // Apgar score at 5 minutes
+
+  @Column({ type: 'boolean', default: false })
+  birthDefectsScreened: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  birthDefectsFindings: string;
+
+  @Column({ type: 'boolean', default: false })
+  hearingScreened: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  hearingScreeningResults: string;
+
+  @Column({ type: 'boolean', default: false })
+  metabolicScreened: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  metabolicScreeningResults: string;
+
+  // Feeding Information
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  feedingType: string; // 'Exclusive breastfeeding', 'Formula', 'Mixed'
+
+  @Column({ type: 'boolean', default: false })
+  breastfeedingInitiated: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  breastfeedingInitiatedTime: Date;
+
+  @Column({ type: 'text', nullable: true })
+  feedingChallenges: string;
+
+  // Immunization Information
+  @Column({ type: 'simple-array', nullable: true })
+  immunizationsGiven: string[]; // Array of vaccine names
+
+  @Column({ type: 'timestamp', nullable: true })
+  bcgVaccineDate: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  opv0VaccineDate: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  vitaminKDate: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  eyeProphylaxisDate: Date;
+
+  // Health Status
+  @Column({ type: 'varchar', length: 50, default: 'Healthy' })
+  currentHealthStatus: string; // 'Healthy', 'At risk', 'Sick', 'Hospitalized'
+
+  @Column({ type: 'text', nullable: true })
+  healthConcerns: string;
+
+  @Column({ type: 'boolean', default: false })
+  jaundicePresent: boolean;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  jaundiceLevel: string; // 'Mild', 'Moderate', 'Severe'
+
+  @Column({ type: 'boolean', default: false })
+  umbilicalCordInfection: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  skinInfection: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  otherHealthIssues: string;
+
+  // Follow-up Information
+  @Column({ type: 'varchar', length: 50, default: 'Pending' })
+  followUpStatus: string; // 'Pending', 'Scheduled', 'Completed', 'Missed'
+
+  @Column({ type: 'timestamp', nullable: true })
+  nextFollowUpDate: Date;
+
+  @Column({ type: 'text', nullable: true })
+  followUpNotes: string;
+
+  // Risk Assessment
+  @Column({ type: 'boolean', default: false })
+  riskFlagRaised: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  riskAssessment: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  riskLevel: string; // 'Low', 'Medium', 'High', 'Critical'
+
+  // Clinician Information
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  clinicianName: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  clinicianPhone: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  healthFacility: string;
+
+  // Relationships
+  @OneToMany(() => NeonatalVisit, (visit) => visit.neonatalPatient, {
+    cascade: true,
+  })
+  visits: NeonatalVisit[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

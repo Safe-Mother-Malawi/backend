@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query,
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
@@ -22,6 +22,90 @@ export class NotificationsController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreateNotificationDto) {
     return this.service.create(dto);
+  }
+
+  /**
+   * Admin Broadcast Message Endpoints
+   */
+
+  /** Admin sends broadcast message to all system users */
+  @Post('broadcast/all')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async broadcastToAll(
+    @CurrentUser() user: User,
+    @Body() dto: { title: string; body: string; type?: NotificationType },
+  ) {
+    return this.service.broadcastToAll(
+      dto.title,
+      dto.body,
+      dto.type || NotificationType.INFO,
+      user.id,
+    );
+  }
+
+  /** Admin sends broadcast message to specific role */
+  @Post('broadcast/role/:role')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async broadcastToRole(
+    @CurrentUser() user: User,
+    @Param('role') role: UserRole,
+    @Body() dto: { title: string; body: string; type?: NotificationType },
+  ) {
+    return this.service.broadcastToRole(
+      role,
+      dto.title,
+      dto.body,
+      dto.type || NotificationType.INFO,
+      user.id,
+    );
+  }
+
+  /** Admin sends broadcast message to specific district */
+  @Post('broadcast/district/:district')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async broadcastToDistrict(
+    @CurrentUser() user: User,
+    @Param('district') district: string,
+    @Body() dto: { title: string; body: string; type?: NotificationType },
+  ) {
+    return this.service.broadcastToDistrict(
+      district,
+      dto.title,
+      dto.body,
+      dto.type || NotificationType.INFO,
+      user.id,
+    );
+  }
+
+  /** Admin sends broadcast message to specific users */
+  @Post('broadcast/users')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async broadcastToUsers(
+    @CurrentUser() user: User,
+    @Body() dto: { userIds: string[]; title: string; body: string; type?: NotificationType },
+  ) {
+    return this.service.broadcastToUsers(
+      dto.userIds,
+      dto.title,
+      dto.body,
+      dto.type || NotificationType.INFO,
+      user.id,
+    );
+  }
+
+  /** Get broadcast history (admin only) */
+  @Get('broadcast/history')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getBroadcastHistory(
+    @Query('limit') limit: number = 50,
+    @Query('offset') offset: number = 0,
+  ) {
+    return this.service.getBroadcastHistory(limit, offset);
   }
 
   /** Each user fetches their own notifications */

@@ -1,52 +1,38 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
+  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
+  ManyToOne, JoinColumn,
 } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+import { NotificationType } from './notification.entity';
 
 @Entity('broadcast_messages')
 export class BroadcastMessage {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn('uuid') id: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  title: string;
+  @Column({ type: 'varchar' }) title: string;
+  @Column({ type: 'text' }) body: string;
 
-  @Column({ type: 'text' })
-  message: string;
+  @Column({ type: 'enum', enum: NotificationType, default: NotificationType.INFO })
+  type: NotificationType;
 
-  @Column({ type: 'varchar', length: 50, default: 'info' })
-  type: string; // 'info', 'warning', 'alert', 'success'
+  @Column({ type: 'varchar' })
+  broadcastType: string; // 'all', 'role', 'district', 'users'
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  targetAudience: string; // 'all', 'mothers', 'clinicians', 'admin'
+  @Column({ type: 'varchar', nullable: true })
+  targetRole: string | null; // For role-based broadcasts
 
-  @Column({ type: 'boolean', default: false })
-  isActive: boolean;
+  @Column({ type: 'varchar', nullable: true })
+  targetDistrict: string | null; // For district-based broadcasts
 
-  @Column({ type: 'timestamp', nullable: true })
-  startDate: Date;
+  @Column({ type: 'int' })
+  recipientCount: number; // Number of users who received this message
 
-  @Column({ type: 'timestamp', nullable: true })
-  endDate: Date;
+  @Column({ type: 'uuid' })
+  sentBy: string; // Admin who sent the message
 
-  @Column({ type: 'int', default: 0 })
-  viewCount: number;
+  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'sentBy' })
+  admin: User;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  createdBy: string;
-
-  @Column({ type: 'text', nullable: true })
-  imageUrl: string;
-
-  @Column({ type: 'text', nullable: true })
-  actionUrl: string;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
+  @CreateDateColumn() createdAt: Date;
 }

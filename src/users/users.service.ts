@@ -377,5 +377,73 @@ export class UsersService {
     const user = await this.findByIdOrThrow(userId);
     return user.profilePhotoUrl;
   }
+
+  // ── Profile Update ────────────────────────────────────────────────────────
+
+  async updateProfile(userId: string, updates: {
+    fullName?: string;
+    email?: string;
+    age?: string;
+    nationality?: string;
+    region?: string;
+    zone?: string;
+    district?: string;
+    facilityName?: string;
+    village?: string;
+    emergencyContact?: string;
+    pregnancyMonths?: string;
+    pregnancyWeeks?: string;
+    expectedDeliveryDate?: string;
+    lmpDate?: string;
+    gravida?: number;
+    parity?: number;
+    babyName?: string;
+    babyDob?: string;
+    babyGender?: string;
+    babyBirthWeight?: string;
+  }): Promise<User> {
+    const user = await this.findByIdOrThrow(userId);
+
+    // Validate email uniqueness if email is being updated
+    if (updates.email && updates.email !== user.email) {
+      const existingUser = await this.usersRepo.findOne({
+        where: { email: updates.email },
+      });
+      if (existingUser) {
+        throw new ConflictException('Email already in use');
+      }
+    }
+
+    // Update only provided fields
+    const updateData: any = {};
+    
+    if (updates.fullName !== undefined) updateData.fullName = updates.fullName;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.age !== undefined) updateData.age = updates.age;
+    if (updates.nationality !== undefined) updateData.nationality = updates.nationality;
+    if (updates.region !== undefined) updateData.region = updates.region;
+    if (updates.zone !== undefined) updateData.zone = updates.zone;
+    if (updates.district !== undefined) updateData.district = updates.district;
+    if (updates.facilityName !== undefined) updateData.facilityName = updates.facilityName;
+    if (updates.village !== undefined) updateData.village = updates.village;
+    if (updates.emergencyContact !== undefined) updateData.emergencyContact = updates.emergencyContact;
+    
+    // Prenatal fields
+    if (updates.pregnancyMonths !== undefined) updateData.pregnancyMonths = updates.pregnancyMonths;
+    if (updates.pregnancyWeeks !== undefined) updateData.pregnancyWeeks = updates.pregnancyWeeks;
+    if (updates.expectedDeliveryDate !== undefined) updateData.expectedDeliveryDate = updates.expectedDeliveryDate;
+    if (updates.lmpDate !== undefined) updateData.lmpDate = updates.lmpDate;
+    if (updates.gravida !== undefined) updateData.gravida = updates.gravida;
+    if (updates.parity !== undefined) updateData.parity = updates.parity;
+    
+    // Neonatal fields
+    if (updates.babyName !== undefined) updateData.babyName = updates.babyName;
+    if (updates.babyDob !== undefined) updateData.babyDob = updates.babyDob;
+    if (updates.babyGender !== undefined) updateData.babyGender = updates.babyGender;
+    if (updates.babyBirthWeight !== undefined) updateData.babyBirthWeight = updates.babyBirthWeight;
+
+    await this.usersRepo.update(userId, updateData);
+    return this.findByIdOrThrow(userId);
+  }
 }
 

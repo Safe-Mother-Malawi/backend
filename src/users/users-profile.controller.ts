@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Put,
   UseInterceptors,
   UploadedFile,
   UseGuards,
@@ -13,12 +14,14 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Body,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import type { Response } from 'express';
@@ -203,5 +206,57 @@ export class UsersProfileController {
         updatedAt: fullUser.updatedAt,
       },
     };
+  }
+
+  /**
+   * Update current user's profile
+   * PUT /users/profile
+   */
+  @Put()
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(
+    @CurrentUser() user: User,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    try {
+      const updatedUser = await this.usersService.updateProfile(user.id, dto);
+
+      return {
+        success: true,
+        message: 'Profile updated successfully',
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          phone: updatedUser.phone,
+          fullName: updatedUser.fullName,
+          role: updatedUser.role,
+          profilePhotoUrl: updatedUser.profilePhotoUrl,
+          age: updatedUser.age,
+          nationality: updatedUser.nationality,
+          district: updatedUser.district,
+          facilityName: updatedUser.facilityName,
+          region: updatedUser.region,
+          zone: updatedUser.zone,
+          village: updatedUser.village,
+          emergencyContact: updatedUser.emergencyContact,
+          // Prenatal fields
+          pregnancyMonths: updatedUser.pregnancyMonths,
+          pregnancyWeeks: updatedUser.pregnancyWeeks,
+          expectedDeliveryDate: updatedUser.expectedDeliveryDate,
+          lmpDate: updatedUser.lmpDate,
+          gravida: updatedUser.gravida,
+          parity: updatedUser.parity,
+          // Neonatal fields
+          babyName: updatedUser.babyName,
+          babyDob: updatedUser.babyDob,
+          babyGender: updatedUser.babyGender,
+          babyBirthWeight: updatedUser.babyBirthWeight,
+          createdAt: updatedUser.createdAt,
+          updatedAt: updatedUser.updatedAt,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to update profile: ${error.message}`);
+    }
   }
 }

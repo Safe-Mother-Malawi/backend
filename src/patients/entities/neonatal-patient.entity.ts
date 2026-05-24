@@ -18,12 +18,13 @@ export class NeonatalPatient {
 
   @ManyToOne(() => PrenatalPatient, (prenatal) => prenatal.neonatalRecords, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
   @JoinColumn({ name: 'prenatal_patient_id' })
-  prenatalPatient: PrenatalPatient;
+  prenatalPatient: PrenatalPatient | null;
 
-  @Column({ name: 'prenatal_patient_id' })
-  prenatalPatientId: string;
+  @Column({ name: 'prenatal_patient_id', nullable: true })
+  prenatalPatientId: string | null;
 
   // Baby Information
   @Column({ type: 'varchar', length: 100 })

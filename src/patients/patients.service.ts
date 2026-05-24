@@ -115,7 +115,7 @@ export class PatientsService {
         }
       } else {
         // Self-registered — create a new patient record
-        const patient = this.neonatalRepo.create({
+        const patientData: Partial<NeonatalPatient> = {
           motherName:      user.fullName,
           motherPhone:     user.phone,
           motherEmail:     user.email,
@@ -126,14 +126,16 @@ export class PatientsService {
           babyGender:      user.babyGender,
           birthWeight:     user.babyBirthWeight ? parseFloat(user.babyBirthWeight) : undefined,
           userId:          user.id,
-        });
+        };
+
+        const patient = this.neonatalRepo.create(patientData);
 
         // Auto-link to existing prenatal patient if not provided
         const prenatalRecord = await this.prenatalRepo.findOne({ where: { phone: user.phone } });
         if (prenatalRecord) {
           patient.prenatalPatientId = prenatalRecord.id;
         }
-        const saved = (await this.neonatalRepo.save(patient)) as NeonatalPatient;
+        const saved = await this.neonatalRepo.save(patient);
 
         // Seed vaccine schedule if DOB is available
         if (user.babyDob) {
@@ -328,7 +330,7 @@ export class PatientsService {
   // ── Neonatal ──────────────────────────────────────────────────────────────
 
   async createNeonatal(dto: CreateNeonatalDto, registeredBy: User): Promise<NeonatalPatient> {
-    const patient = this.neonatalRepo.create({
+    const patientData: Partial<NeonatalPatient> = {
       motherName: dto.motherName,
       motherPhone: dto.motherPhone,
       motherEmail: dto.motherEmail || undefined,
@@ -338,7 +340,9 @@ export class PatientsService {
       dateOfBirth: new Date(dto.babyDob),
       babyGender: dto.babyGender,
       birthWeight: dto.babyBirthWeight ? parseFloat(dto.babyBirthWeight) : undefined,
-    });
+    };
+
+    const patient = this.neonatalRepo.create(patientData);
 
     // 1. DELIVERY FLOW: Transition Prenatal Mother to Neonatal
     let linkedUserId: string | null = null;
@@ -359,7 +363,7 @@ export class PatientsService {
       }
     }
 
-    const saved = (await this.neonatalRepo.save(patient)) as NeonatalPatient;
+    const saved = await this.neonatalRepo.save(patient);
 
     // 2. Auto-seed the Malawi EPI vaccine schedule (Neonatal schedule created)
     const babyDob = new Date(dto.babyDob);

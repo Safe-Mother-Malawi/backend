@@ -141,7 +141,7 @@ export class PatientsService {
         if (user.babyDob) {
           try {
             await this.trackingService.seedVaccines(saved.id, new Date(user.babyDob));
-            await this.appointmentsService.scheduleInitialNeonatalVisit(saved.id, user.babyDob, saved.babyName, saved.district || undefined);
+            await this.appointmentsService.scheduleInitialNeonatalVisit(saved.id, user.babyDob, saved.babyName || 'Baby', saved.district || undefined);
           } catch (_) { /* non-critical */ }
         }
 

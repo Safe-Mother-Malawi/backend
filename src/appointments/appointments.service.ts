@@ -516,7 +516,7 @@ export class AppointmentsService {
       // Next Visit Scheduled
       if (appt.neonatalPatientId) {
         const patient = await this.neonatalRepo.findOne({ where: { id: appt.neonatalPatientId } });
-        if (patient) {
+        if (patient && patient.dateOfBirth) {
           const dob = new Date(patient.dateOfBirth);
           const now = new Date();
           const ageInDays = Math.floor((now.getTime() - dob.getTime()) / (1000 * 60 * 60 * 24));

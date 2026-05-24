@@ -27,14 +27,14 @@ export class NeonatalPatient {
   prenatalPatientId: string | null;
 
   // Baby Information
-  @Column({ type: 'varchar', length: 100 })
-  babyName: string;
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  babyName: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   babyGender: string | null; // 'Male', 'Female'
 
-  @Column({ type: 'timestamp' })
-  dateOfBirth: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  dateOfBirth: Date | null;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   birthWeight: number; // in kg

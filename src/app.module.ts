@@ -38,6 +38,7 @@ import { RiskAssessment } from './risk-assessments/entities/risk-assessment.enti
 import { Appointment } from './appointments/entities/appointment.entity';
 import { Alert } from './alerts/entities/alert.entity';
 import { Notification } from './notifications/entities/notification.entity';
+import { BroadcastMessage } from './notifications/entities/broadcast-message.entity';
 import { FeedingLog } from './tracking/entities/feeding-log.entity';
 import { SleepLog } from './tracking/entities/sleep-log.entity';
 import { Vaccine } from './tracking/entities/vaccine.entity';
@@ -79,7 +80,7 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
           url: databaseUrl,
           entities: [
             User, PrenatalPatient, NeonatalPatient,
-            RiskAssessment, Appointment, Alert, Notification,
+            RiskAssessment, Appointment, Alert, Notification, BroadcastMessage,
             FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion,
             HealthCheckHistory, DeviceToken,
             PasswordResetToken,

@@ -133,7 +133,7 @@ export class PatientsService {
         if (prenatalRecord) {
           patient.prenatalPatientId = prenatalRecord.id;
         }
-        const saved = await this.neonatalRepo.save(patient);
+        const saved = (await this.neonatalRepo.save(patient)) as NeonatalPatient;
 
         // Seed vaccine schedule if DOB is available
         if (user.babyDob) {
@@ -331,7 +331,7 @@ export class PatientsService {
     const patient = this.neonatalRepo.create({
       motherName: dto.motherName,
       motherPhone: dto.motherPhone,
-      motherEmail: dto.motherEmail || null,
+      motherEmail: dto.motherEmail || undefined,
       district: dto.district,
       facilityName: dto.facilityName,
       babyName: dto.babyName,
@@ -359,7 +359,7 @@ export class PatientsService {
       }
     }
 
-    const saved = await this.neonatalRepo.save(patient);
+    const saved = (await this.neonatalRepo.save(patient)) as NeonatalPatient;
 
     // 2. Auto-seed the Malawi EPI vaccine schedule (Neonatal schedule created)
     const babyDob = new Date(dto.babyDob);

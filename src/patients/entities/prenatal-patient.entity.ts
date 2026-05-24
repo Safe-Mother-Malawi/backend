@@ -1,8 +1,9 @@
 import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, ManyToOne, JoinColumn,
+  UpdateDateColumn, ManyToOne, OneToMany, JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { NeonatalPatient } from './neonatal-patient.entity';
 
 @Entity('prenatal_patients')
 export class PrenatalPatient {
@@ -58,6 +59,12 @@ export class PrenatalPatient {
   @Column({ type: 'date', nullable: true }) postpartumFollowUpDate: Date | null;
   @Column({ type: 'boolean', default: false }) postpartumFollowUpCompleted: boolean;
   @Column({ type: 'text', nullable: true }) postpartumNotes: string | null;
+
+  // Neonatal Records
+  @OneToMany(() => NeonatalPatient, (neonatal) => neonatal.prenatalPatient, {
+    cascade: true,
+  })
+  neonatalRecords: NeonatalPatient[];
 
   @CreateDateColumn() createdAt: Date;
   @UpdateDateColumn() updatedAt: Date;

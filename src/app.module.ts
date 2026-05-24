@@ -34,6 +34,7 @@ import { FirebaseModule } from './firebase/firebase.module';
 import { User } from './users/entities/user.entity';
 import { PrenatalPatient } from './patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from './patients/entities/neonatal-patient.entity';
+import { NeonatalVisit } from './patients/entities/neonatal-visit.entity';
 import { RiskAssessment } from './risk-assessments/entities/risk-assessment.entity';
 import { Appointment } from './appointments/entities/appointment.entity';
 import { Alert } from './alerts/entities/alert.entity';
@@ -48,6 +49,8 @@ import { HealthFacility } from './health-facilities/entities/health-facility.ent
 import { WhoQuestion } from './who-questions/entities/who-question.entity';
 import { HealthCheckHistory } from './health-check-history/entities/health-check-history.entity';
 import { DeviceToken } from './push-notifications/entities/device-token.entity';
+import { Reminder } from './reminders/entities/reminder.entity';
+import { Nationality } from './nationalities/entities/nationality.entity';
 
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
@@ -79,10 +82,10 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
           type: 'postgres',
           url: databaseUrl,
           entities: [
-            User, PrenatalPatient, NeonatalPatient,
+            User, PrenatalPatient, NeonatalPatient, NeonatalVisit,
             RiskAssessment, Appointment, Alert, Notification, BroadcastMessage,
             FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion,
-            HealthCheckHistory, DeviceToken,
+            HealthCheckHistory, DeviceToken, Reminder, Nationality,
             PasswordResetToken,
           ],
           synchronize: true, // Auto-create tables (set to false after first successful deployment)

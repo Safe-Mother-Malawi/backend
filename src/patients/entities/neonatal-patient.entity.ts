@@ -159,6 +159,31 @@ export class NeonatalPatient {
   @Column({ type: 'varchar', length: 100, nullable: true })
   healthFacility: string;
 
+  // Mother Information
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  motherName: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  motherPhone: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  motherEmail: string;
+
+  // User Link
+  @Column({ type: 'uuid', nullable: true })
+  userId: string;
+
+  // Location Information
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  district: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  facilityName: string;
+
+  // Patient Status
+  @Column({ type: 'varchar', length: 50, default: 'alive' })
+  patientStatus: string; // 'alive', 'deceased'
+
   // Relationships
   @OneToMany(() => NeonatalVisit, (visit) => visit.neonatalPatient, {
     cascade: true,

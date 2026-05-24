@@ -210,24 +210,20 @@ export class AnalyticsService {
 
     // 3. Low birth weight (< 2.5 kg)
     const allNeonates = await this.neonatalRepo.find({
-      select: ['babyBirthWeight', 'gestationalAgeAtBirth', 'patientStatus']
+      select: ['birthWeight', 'patientStatus']
     });
     let lbwCount = 0;
-    let pretermCount = 0;
     
     for (const baby of allNeonates) {
-      if (baby.babyBirthWeight) {
-        const bw = parseFloat(baby.babyBirthWeight);
+      if (baby.birthWeight) {
+        const bw = parseFloat(baby.birthWeight.toString());
         if (!isNaN(bw) && bw < 2.5) lbwCount++;
-      }
-      if (baby.gestationalAgeAtBirth && baby.gestationalAgeAtBirth < 37) {
-        pretermCount++;
       }
     }
     
     const totalBirths = allNeonates.length;
     const lowBirthWeightRate = totalBirths > 0 ? Math.round((lbwCount / totalBirths) * 100) : 0;
-    const pretermBirthsRate = totalBirths > 0 ? Math.round((pretermCount / totalBirths) * 100) : 0;
+    const pretermBirthsRate = 0; // Removed as gestationalAgeAtBirth is not in entity
 
     // 4. Neonatal Mortality Rate
     const neonatalMortalityRate = totalBirths > 0 ? Math.round((neonatalDeaths / totalBirths) * 100) : 0;

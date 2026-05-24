@@ -119,18 +119,13 @@ export class PatientsService {
           motherName:      user.fullName,
           motherPhone:     user.phone,
           motherEmail:     user.email,
-          motherAge:       user.age,
-          nationality:     user.nationality,
           district:        user.district,
-          village:         user.village,
           facilityName:    user.facilityName,
-          emergencyContact: user.emergencyContact,
           babyName:        user.babyName ?? 'Unknown',
-          babyDob:         user.babyDob ?? '',
+          dateOfBirth:     user.babyDob ? new Date(user.babyDob) : new Date(),
           babyGender:      user.babyGender,
-          babyBirthWeight: user.babyBirthWeight,
+          birthWeight:     user.babyBirthWeight ? parseFloat(user.babyBirthWeight) : undefined,
           userId:          user.id,
-          registeredById:  null, // self-registered
         });
 
         // Auto-link to existing prenatal patient if not provided
@@ -334,9 +329,15 @@ export class PatientsService {
 
   async createNeonatal(dto: CreateNeonatalDto, registeredBy: User): Promise<NeonatalPatient> {
     const patient = this.neonatalRepo.create({
-      ...dto,
+      motherName: dto.motherName,
+      motherPhone: dto.motherPhone,
       motherEmail: dto.motherEmail || null,
-      registeredById: registeredBy.id,
+      district: dto.district,
+      facilityName: dto.facilityName,
+      babyName: dto.babyName,
+      dateOfBirth: new Date(dto.babyDob),
+      babyGender: dto.babyGender,
+      birthWeight: dto.babyBirthWeight ? parseFloat(dto.babyBirthWeight) : undefined,
     });
 
     // 1. DELIVERY FLOW: Transition Prenatal Mother to Neonatal
@@ -373,9 +374,7 @@ export class PatientsService {
         role:         UserRole.NEONATAL,
         fullName:     dto.motherName,
         district:     dto.district,
-        village:      dto.village,
         facilityName: dto.facilityName,
-        emergencyContact: dto.emergencyContact,
         babyName:     dto.babyName,
         babyDob:      dto.babyDob,
         babyGender:   dto.babyGender,
@@ -492,7 +491,23 @@ export class PatientsService {
   }
 
   async updateNeonatal(id: string, dto: Partial<CreateNeonatalDto>, actorId?: string): Promise<NeonatalPatient> {
-    await this.neonatalRepo.update(id, dto);
+    const updateData: any = { ...dto };
+    
+    // Convert string numbers to actual numbers
+    if (updateData.birthWeight && typeof updateData.birthWeight === 'string') {
+      updateData.birthWeight = parseFloat(updateData.birthWeight);
+    }
+    if (updateData.birthLength && typeof updateData.birthLength === 'string') {
+      updateData.birthLength = parseFloat(updateData.birthLength);
+    }
+    
+    // Convert babyDob to dateOfBirth
+    if (updateData.babyDob) {
+      updateData.dateOfBirth = new Date(updateData.babyDob);
+      delete updateData.babyDob;
+    }
+    
+    await this.neonatalRepo.update(id, updateData);
     const updated = await this.findOneNeonatal(id);
     await this.activityLog.log({
       action: ActivityAction.PATIENT_UPDATED,

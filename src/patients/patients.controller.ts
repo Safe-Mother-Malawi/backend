@@ -1,6 +1,7 @@
 import {
   Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
   UseGuards, HttpCode, HttpStatus, NotFoundException, BadRequestException,
+  UnauthorizedException, ForbiddenException,
 } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePrenatalDto } from './dto/create-prenatal.dto';
@@ -66,8 +67,9 @@ export class PatientsController {
     
     const patient = await this.patientsService.findOnePrenatal(id, user.id);
     
-    // Verify clinician has access to this patient
-    if (user.role === UserRole.CLINICIAN && patient.clinicianId !== user.id) {
+    // Clinicians can only access patients in their district
+    // Admins and DHOs can access all patients
+    if (user.role === UserRole.CLINICIAN && patient.district !== user.district) {
       throw new ForbiddenException('You do not have access to this patient record');
     }
     
@@ -82,8 +84,9 @@ export class PatientsController {
     
     const patient = await this.patientsService.findOnePrenatal(id, user.id);
     
-    // Verify clinician has access to this patient
-    if (user.role === UserRole.CLINICIAN && patient.clinicianId !== user.id) {
+    // Clinicians can only access patients in their district
+    // Admins and DHOs can access all patients
+    if (user.role === UserRole.CLINICIAN && patient.district !== user.district) {
       throw new ForbiddenException('You do not have access to this patient record');
     }
     

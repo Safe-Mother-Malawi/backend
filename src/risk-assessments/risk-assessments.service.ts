@@ -154,10 +154,15 @@ export class RiskAssessmentsService {
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
-  async findAll(): Promise<RiskAssessment[]> {
+  async findAll(limit: number = 50, offset: number = 0): Promise<RiskAssessment[]> {
+    if (limit < 1 || limit > 1000) limit = 50; // Enforce reasonable limits
+    if (offset < 0) offset = 0;
+    
     return this.repo.find({
       relations: ['submittedBy'],
       order: { submittedAt: 'DESC' },
+      take: limit,
+      skip: offset,
     });
   }
 

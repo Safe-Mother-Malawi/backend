@@ -54,18 +54,39 @@ export class PatientsController {
   @Get('prenatal')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
   findAllPrenatal(@CurrentUser() user: User, @Query('search') search?: string) {
+    if (!user) throw new UnauthorizedException('User not authenticated');
     return this.patientsService.findAllPrenatal(user, search);
   }
 
   @Get('prenatal/:id')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
-  findOnePrenatal(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.patientsService.findOnePrenatal(id, user.id);
+  async findOnePrenatal(@Param('id') id: string, @CurrentUser() user: User) {
+    if (!user) throw new UnauthorizedException('User not authenticated');
+    if (!id) throw new BadRequestException('Patient ID is required');
+    
+    const patient = await this.patientsService.findOnePrenatal(id, user.id);
+    
+    // Verify clinician has access to this patient
+    if (user.role === UserRole.CLINICIAN && patient.clinicianId !== user.id) {
+      throw new ForbiddenException('You do not have access to this patient record');
+    }
+    
+    return patient;
   }
 
   @Get('prenatal/:id/history')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
-  getPrenatalHistory(@Param('id') id: string) {
+  async getPrenatalHistory(@Param('id') id: string, @CurrentUser() user: User) {
+    if (!user) throw new UnauthorizedException('User not authenticated');
+    if (!id) throw new BadRequestException('Patient ID is required');
+    
+    const patient = await this.patientsService.findOnePrenatal(id, user.id);
+    
+    // Verify clinician has access to this patient
+    if (user.role === UserRole.CLINICIAN && patient.clinicianId !== user.id) {
+      throw new ForbiddenException('You do not have access to this patient record');
+    }
+    
     return this.patientsService.getPatientHistory(id);
   }
 

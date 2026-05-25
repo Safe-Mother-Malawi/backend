@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Delete, Body, Param,
-  UseGuards, HttpCode, HttpStatus,
+  Controller, Get, Post, Delete, Body, Param, Query,
+  UseGuards, HttpCode, HttpStatus, BadRequestException, NotFoundException, ForbiddenException,
 } from '@nestjs/common';
 import { RiskAssessmentsService } from './risk-assessments.service';
 import { CreateRiskAssessmentDto } from './dto/create-risk-assessment.dto';
@@ -24,20 +24,38 @@ export class RiskAssessmentsController {
 
   @Get()
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query('limit') limit: number = 50, @Query('offset') offset: number = 0) {
+    // Add pagination to prevent loading all records
+    return this.service.findAll(limit, offset);
   }
 
   @Get('patient/:patientId')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO, UserRole.PRENATAL, UserRole.NEONATAL)
-  findByPatient(@Param('patientId') patientId: string) {
-    return this.service.findByPatient(patientId);
+  async findByPatient(@Param('patientId') patientId: string, @CurrentUser() user: User) {
+    if (!patientId) throw new BadRequestException('Patient ID is required');
+    
+    // Verify patient exists
+    const patient = await this.service.findByPatient(patientId);
+    if (!patient || patient.length === 0) {
+      throw new NotFoundException('No risk assessments found for this patient');
+    }
+    
+    return patient;
   }
 
   @Get(':id')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: User) {
+    if (!id) throw new BadRequestException('Assessment ID is required');
+    
+    const assessment = await this.service.findOne(id);
+    
+    // Verify clinician has access to this assessment
+    if (user.role === UserRole.CLINICIAN && assessment.submittedBy?.id !== user.id) {
+      throw new ForbiddenException('You do not have access to this assessment');
+    }
+    
+    return assessment;
   }
 
   @Delete(':id')

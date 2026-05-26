@@ -63,7 +63,7 @@ import { LastActiveMiddleware } from './common/middleware/last-active.middleware
 
     ThrottlerModule.forRoot([{
       ttl: 60000,
-      limit: 1000, // Increased to 1000 requests per minute for better concurrency
+      limit: 5000, // Increased to 5000 requests per minute for better concurrency
     }]),
 
     ScheduleModule.forRoot(),

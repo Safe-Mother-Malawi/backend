@@ -336,6 +336,7 @@ export class PatientsService {
       motherEmail: dto.motherEmail ?? undefined,
       district: dto.district ?? undefined,
       facilityName: dto.facilityName ?? undefined,
+      registeredById: registeredBy.id,
       babyName: dto.babyName,
       dateOfBirth: new Date(dto.babyDob),
       babyGender: dto.babyGender ?? undefined,

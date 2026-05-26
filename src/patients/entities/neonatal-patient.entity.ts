@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { PrenatalPatient } from './prenatal-patient.entity';
 import { NeonatalVisit } from './neonatal-visit.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('neonatal_patients')
 export class NeonatalPatient {
@@ -159,6 +160,13 @@ export class NeonatalPatient {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   healthFacility: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  registeredById: string | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'registeredById' })
+  registeredBy: User | null;
 
   // Mother Information
   @Column({ type: 'varchar', length: 100, nullable: true })

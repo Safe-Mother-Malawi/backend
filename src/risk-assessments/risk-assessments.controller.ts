@@ -34,13 +34,14 @@ export class RiskAssessmentsController {
   async findByPatient(@Param('patientId') patientId: string, @CurrentUser() user: User) {
     if (!patientId) throw new BadRequestException('Patient ID is required');
     
-    // Verify patient exists
-    const patient = await this.service.findByPatient(patientId);
-    if (!patient || patient.length === 0) {
-      throw new NotFoundException('No risk assessments found for this patient');
+    try {
+      // Get risk assessments for patient
+      const assessments = await this.service.findByPatient(patientId);
+      return assessments || [];
+    } catch (error) {
+      // Return empty array if no assessments found
+      return [];
     }
-    
-    return patient;
   }
 
   @Get(':id')
@@ -48,14 +49,22 @@ export class RiskAssessmentsController {
   async findOne(@Param('id') id: string, @CurrentUser() user: User) {
     if (!id) throw new BadRequestException('Assessment ID is required');
     
-    const assessment = await this.service.findOne(id);
-    
-    // Verify clinician has access to this assessment
-    if (user.role === UserRole.CLINICIAN && assessment.submittedBy?.id !== user.id) {
-      throw new ForbiddenException('You do not have access to this assessment');
+    try {
+      const assessment = await this.service.findOne(id);
+      if (!assessment) throw new NotFoundException('Assessment not found');
+      
+      // Verify clinician has access to this assessment
+      if (user.role === UserRole.CLINICIAN && assessment.submittedById !== user.id) {
+        throw new ForbiddenException('You do not have access to this assessment');
+      }
+      
+      return assessment;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      throw new NotFoundException('Assessment not found');
     }
-    
-    return assessment;
   }
 
   @Delete(':id')

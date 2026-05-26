@@ -1,5 +1,5 @@
 import {
-  IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Min, Max,
+  IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Min, Max, IsArray,
 } from 'class-validator';
 import { PatientType } from '../entities/risk-assessment.entity';
 
@@ -15,6 +15,9 @@ export class CreateRiskAssessmentDto {
   score: number;
 
   @IsNotEmpty() @IsString() message: string;
+
+  @IsOptional() @IsArray()
+  symptoms?: string[];
 
   @IsOptional() @IsObject()
   answers?: Record<string, unknown>;

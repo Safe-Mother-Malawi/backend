@@ -103,9 +103,7 @@ export class RiskAssessmentsService {
         patientStatus: dto.patientType === PatientType.PRENATAL ? 'Prenatal' : 'Neonatal',
         contact: dto.patientPhone,
         reason: `${riskLevel} — Score ${dto.score}. ${dto.message}`,
-        symptoms: dto.answers
-          ? Object.values(dto.answers).filter((v) => typeof v === 'string') as string[]
-          : [],
+        symptoms: dto.symptoms ?? [],
         severity,
         patientId: dto.patientId,
         clinicianId: submittedBy.role === UserRole.CLINICIAN ? submittedBy.id : null,

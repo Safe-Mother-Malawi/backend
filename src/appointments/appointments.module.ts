@@ -10,6 +10,7 @@ import { UsersModule } from '../users/users.module';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 import { AnalyticsModule } from '../analytics/analytics.module';
+import { RemindersModule } from '../reminders/reminders.module';
 
 import { RiskEngineModule } from '../risk-engine/risk-engine.module';
 
@@ -19,6 +20,7 @@ import { RiskEngineModule } from '../risk-engine/risk-engine.module';
     NotificationsModule,
     UsersModule,
     RiskEngineModule,
+    RemindersModule,
     forwardRef(() => AnalyticsModule),
   ],
   providers: [AppointmentsService, ANCTrackingService],

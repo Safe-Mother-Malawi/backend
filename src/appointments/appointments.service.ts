@@ -11,6 +11,7 @@ import { EventsGateway, SocketEvent } from '../events/events.gateway';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 import { RiskEngineService, RiskEngineInput, CarePathway, RiskEngineResult } from '../risk-engine/risk-engine.service';
+import { RemindersService } from '../reminders/reminders.service';
 
 @Injectable()
 export class AppointmentsService {
@@ -27,6 +28,7 @@ export class AppointmentsService {
     private readonly usersService: UsersService,
     private readonly eventsGateway: EventsGateway,
     private readonly riskEngineService: RiskEngineService,
+    private readonly remindersService: RemindersService,
   ) {}
 
   async create(dto: CreateAppointmentDto, createdBy: User): Promise<Appointment> {
@@ -63,6 +65,7 @@ export class AppointmentsService {
 
     // Notify the patient if they have a linked mobile account
     await this._notifyPatient(saved);
+    await this._syncAppointmentReminders(saved);
 
     this.eventsGateway.emit(SocketEvent.APPOINTMENT_CHANGED, { action: 'created' });
     return saved;
@@ -127,17 +130,21 @@ export class AppointmentsService {
     
     // Notify the patient about the updated appointment
     await this._notifyPatient(updated, 'updated');
+    await this._syncAppointmentReminders(updated);
     this.eventsGateway.emit(SocketEvent.APPOINTMENT_CHANGED, { action: 'updated' });
     return updated;
   }
 
   async updateStatus(id: string, status: AppointmentStatus): Promise<Appointment> {
     await this.repo.update(id, { status });
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    await this._syncAppointmentReminders(updated);
+    return updated;
   }
 
   async delete(id: string): Promise<void> {
     const appt = await this.findOne(id);
+    await this.remindersService.cancelPendingAppointmentReminders(id);
     await this.repo.remove(appt);
   }
 
@@ -176,20 +183,7 @@ export class AppointmentsService {
    */
   private async _notifyPatient(appointment: Appointment, action: 'created' | 'updated' = 'created'): Promise<void> {
     try {
-      let patientUserId: string | null = null;
-
-      // Find the patient's linked user account
-      if (appointment.prenatalPatientId) {
-        const patient = await this.prenatalRepo.findOne({
-          where: { id: appointment.prenatalPatientId },
-        });
-        patientUserId = patient?.userId ?? null;
-      } else if (appointment.neonatalPatientId) {
-        const patient = await this.neonatalRepo.findOne({
-          where: { id: appointment.neonatalPatientId },
-        });
-        patientUserId = patient?.userId ?? null;
-      }
+      const patientUserId = await this._getPatientUserId(appointment);
 
       // If patient has a linked mobile account, send notification
       if (patientUserId) {
@@ -228,6 +222,66 @@ export class AppointmentsService {
         error instanceof Error ? error.message : String(error),
       );
     }
+  }
+
+  private async _syncAppointmentReminders(appointment: Appointment): Promise<void> {
+    try {
+      if (
+        appointment.status === AppointmentStatus.CANCELLED ||
+        appointment.status === AppointmentStatus.COMPLETED ||
+        appointment.status === AppointmentStatus.NO_SHOW
+      ) {
+        await this.remindersService.cancelPendingAppointmentReminders(appointment.id);
+        return;
+      }
+
+      const recipientIds = await this._getReminderRecipientIds(appointment);
+      await this.remindersService.replaceAppointmentReminders({
+        appointmentId: appointment.id,
+        userIds: recipientIds,
+        appointmentDate: appointment.date,
+        appointmentTime: appointment.time,
+        title: appointment.title,
+        patientName: appointment.patientName,
+        location: appointment.location,
+      });
+
+      this.logger.log(`Synced ${recipientIds.length} reminder recipient(s) for appointment ${appointment.id}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to sync reminders for appointment ${appointment.id}`,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  private async _getReminderRecipientIds(appointment: Appointment): Promise<string[]> {
+    const ids = new Set<string>();
+    if (appointment.createdById) ids.add(appointment.createdById);
+    if (appointment.clinicianId) ids.add(appointment.clinicianId);
+
+    const patientUserId = await this._getPatientUserId(appointment);
+    if (patientUserId) ids.add(patientUserId);
+
+    return [...ids];
+  }
+
+  private async _getPatientUserId(appointment: Appointment): Promise<string | null> {
+    if (appointment.prenatalPatientId) {
+      const patient = await this.prenatalRepo.findOne({
+        where: { id: appointment.prenatalPatientId },
+      });
+      return patient?.userId ?? null;
+    }
+
+    if (appointment.neonatalPatientId) {
+      const patient = await this.neonatalRepo.findOne({
+        where: { id: appointment.neonatalPatientId },
+      });
+      return patient?.userId ?? null;
+    }
+
+    return null;
   }
 
   /**

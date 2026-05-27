@@ -108,4 +108,16 @@ export class AppointmentsController {
     await this.service.sendManualReminder(id);
     return { message: 'Reminder sent successfully.' };
   }
+
+  @Post(':id/busy')
+  @Roles(UserRole.PRENATAL, UserRole.NEONATAL)
+  @HttpCode(HttpStatus.CREATED)
+  markAsBusy(
+    @Param('id') appointmentId: string,
+    @Body() dto: any,
+    @CurrentUser() user: User,
+  ) {
+    // This will be implemented via BusyResponseController
+    return { message: 'Busy response recorded' };
+  }
 }

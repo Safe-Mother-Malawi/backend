@@ -8,10 +8,11 @@ import { UsersModule } from '../users/users.module';
 import { AlertsModule } from '../alerts/alerts.module';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
+import { RiskAssessment } from '../risk-assessments/entities/risk-assessment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([HealthCheckHistory, PrenatalPatient, NeonatalPatient]),
+    TypeOrmModule.forFeature([HealthCheckHistory, PrenatalPatient, NeonatalPatient, RiskAssessment]),
     ActivityLogModule,
     UsersModule,
     AlertsModule,

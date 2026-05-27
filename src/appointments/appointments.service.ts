@@ -11,6 +11,13 @@ import { EventsGateway, SocketEvent } from '../events/events.gateway';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 import { RiskEngineService, RiskEngineInput, CarePathway, RiskEngineResult } from '../risk-engine/risk-engine.service';
+import { Cron } from '@nestjs/schedule';
+import { AlertsService } from '../alerts/alerts.service';
+import { AlertSeverity } from '../alerts/entities/alert.entity';
+import { RemindersService } from '../reminders/reminders.service';
+import { ReminderType, ReminderFrequency } from '../reminders/entities/reminder.entity';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import { ActivityAction } from '../activity-log/entities/activity-log.entity';
 
 @Injectable()
 export class AppointmentsService {
@@ -27,10 +34,17 @@ export class AppointmentsService {
     private readonly usersService: UsersService,
     private readonly eventsGateway: EventsGateway,
     private readonly riskEngineService: RiskEngineService,
+    private readonly alertsService: AlertsService,
+    private readonly remindersService: RemindersService,
+    private readonly activityLogService: ActivityLogService,
   ) {}
 
   async create(dto: CreateAppointmentDto, createdBy: User): Promise<Appointment> {
-    let appt = this.repo.create({ ...dto, createdById: createdBy.id });
+    let appt = this.repo.create({
+      status: dto.status ?? AppointmentStatus.PENDING_CONFIRMATION,
+      ...dto,
+      createdById: createdBy.id,
+    });
 
     // 1. Process ANC Visit if ancData is provided
     if (appt.ancData) {
@@ -131,8 +145,41 @@ export class AppointmentsService {
     return updated;
   }
 
-  async updateStatus(id: string, status: AppointmentStatus): Promise<Appointment> {
-    await this.repo.update(id, { status });
+  async updateStatus(
+    id: string,
+    status: AppointmentStatus,
+    preferredTimeSelection?: string,
+    customDateTime?: string,
+  ): Promise<Appointment> {
+    const appointment = await this.findOne(id);
+    appointment.status = status;
+    await this.repo.save(appointment);
+
+    if (status === AppointmentStatus.PATIENT_UNAVAILABLE) {
+      await this.handlePatientUnavailable(appointment, preferredTimeSelection, customDateTime);
+    } else if (status === AppointmentStatus.CONFIRMED) {
+      const clinicianId = appointment.clinicianId || appointment.createdById;
+      if (clinicianId) {
+        await this.notificationsService.broadcast(
+          [clinicianId],
+          '✅ Appointment Confirmed',
+          `Patient ${appointment.patientName} has confirmed their checkup scheduled for ${appointment.date} at ${appointment.time || 'TBD'}.`,
+          NotificationType.APPOINTMENT,
+        );
+      }
+      
+      await this.activityLogService.log({
+        action: ActivityAction.APPOINTMENT_UPDATED,
+        actorId: appointment.prenatalPatientId || appointment.neonatalPatientId || 'system',
+        description: `Patient ${appointment.patientName} confirmed their appointment.`,
+        resourceType: 'appointment',
+        resourceId: appointment.id,
+        meta: { status: 'confirmed' },
+      });
+    }
+
+    this.eventsGateway.emit(SocketEvent.APPOINTMENT_CHANGED, { action: 'status_updated' });
+
     return this.findOne(id);
   }
 
@@ -551,6 +598,372 @@ export class AppointmentsService {
       }
     } catch (e) {
       this.logger.error('Failed to process Neonatal visit risk engine/auto-schedule', e);
+    }
+  }
+
+  private async handlePatientUnavailable(
+    appt: Appointment,
+    preferredTime?: string,
+    customDateTime?: string,
+  ): Promise<void> {
+    try {
+      this.logger.log(`Handling PATIENT_UNAVAILABLE for appointment ${appt.id}. Risk assessment starting...`);
+
+      let risk: 'low' | 'moderate' | 'critical' = 'low';
+      let patientName = appt.patientName;
+      let patientContact = appt.patientContact;
+      let prenatalPatient: PrenatalPatient | null = null;
+      let neonatalPatient: NeonatalPatient | null = null;
+
+      if (appt.prenatalPatientId) {
+        prenatalPatient = await this.prenatalRepo.findOne({ where: { id: appt.prenatalPatientId } });
+        if (prenatalPatient) {
+          patientName = prenatalPatient.fullName;
+          patientContact = prenatalPatient.phone;
+          
+          const status = prenatalPatient.currentMaternalStatus?.toLowerCase() || '';
+          const riskCat = appt.riskResult?.riskCategory?.toLowerCase() || '';
+          const hasDangerSigns = appt.ancData?.dangerSigns?.length > 0;
+          
+          if (status === 'critical' || riskCat.includes('seek') || riskCat.includes('critical') || hasDangerSigns) {
+            risk = 'critical';
+          } else if (status === 'at-risk' || riskCat.includes('moderate') || riskCat.includes('medium') || riskCat.includes('high')) {
+            risk = 'moderate';
+          }
+        }
+      } else if (appt.neonatalPatientId) {
+        neonatalPatient = await this.neonatalRepo.findOne({ where: { id: appt.neonatalPatientId } });
+        if (neonatalPatient) {
+          patientName = neonatalPatient.babyName || neonatalPatient.motherName || patientName;
+          patientContact = neonatalPatient.motherPhone || patientContact;
+          
+          const status = neonatalPatient.riskLevel?.toLowerCase() || '';
+          const hasDangerSigns = appt.ancData?.dangerSigns?.length > 0;
+          
+          if (status === 'critical' || hasDangerSigns) {
+            risk = 'critical';
+          } else if (status === 'medium' || status === 'high') {
+            risk = 'moderate';
+          }
+        }
+      }
+
+      this.logger.log(`Patient ${patientName} risk evaluated as: ${risk.toUpperCase()}`);
+
+      if (risk === 'critical') {
+        appt.status = AppointmentStatus.URGENT_ATTENTION_REQUIRED;
+        await this.repo.save(appt);
+
+        await this.alertsService.createFromRisk({
+          patientName,
+          patientStatus: 'critical',
+          contact: patientContact || 'N/A',
+          reason: `High-risk patient marked checkup as busy/unavailable. Urgent follow-up needed.`,
+          symptoms: appt.ancData?.dangerSigns || [],
+          severity: AlertSeverity.CRITICAL,
+          patientId: appt.prenatalPatientId || appt.neonatalPatientId,
+          clinicianId: appt.clinicianId || appt.createdById,
+          district: appt.location || (prenatalPatient?.district || neonatalPatient?.district),
+          facilityName: prenatalPatient?.facilityName || neonatalPatient?.facilityName,
+        });
+
+        await this.activityLogService.log({
+          action: ActivityAction.ALERT_CREATED,
+          actorId: appt.clinicianId || appt.createdById,
+          description: `Assigned nearby Community Health Worker to visit patient ${patientName} at home due to critical risk and unavailable checkup.`,
+          resourceType: 'appointment',
+          resourceId: appt.id,
+          meta: { risk: 'critical', escalation: 'chw_visit_assigned' },
+        });
+
+        let patientUserId: string | null = null;
+        if (prenatalPatient) patientUserId = prenatalPatient.userId;
+        else if (neonatalPatient) patientUserId = neonatalPatient.userId;
+
+        if (patientUserId) {
+          await this.notificationsService.create({
+            userId: patientUserId,
+            title: '⚠️ URGENT: Immediate Care Required',
+            body: `Safe Mother Malawi: You indicated you are unavailable, but your health profile requires immediate attention. Please go to the nearest clinic or call 700.`,
+            type: NotificationType.ALERT,
+          });
+        }
+
+      } else if (risk === 'moderate') {
+        const patientId = appt.prenatalPatientId || appt.neonatalPatientId;
+        let pastMisses = 0;
+        if (patientId) {
+          pastMisses = await this.repo.count({
+            where: [
+              { prenatalPatientId: patientId, status: AppointmentStatus.NO_RESPONSE },
+              { prenatalPatientId: patientId, status: AppointmentStatus.MISSED },
+              { prenatalPatientId: patientId, status: AppointmentStatus.PATIENT_UNAVAILABLE },
+              { prenatalPatientId: patientId, status: AppointmentStatus.AT_RISK_NON_RESPONSIVE },
+              { prenatalPatientId: patientId, status: AppointmentStatus.FOLLOW_UP_REQUIRED },
+              { neonatalPatientId: patientId, status: AppointmentStatus.NO_RESPONSE },
+              { neonatalPatientId: patientId, status: AppointmentStatus.MISSED },
+              { neonatalPatientId: patientId, status: AppointmentStatus.PATIENT_UNAVAILABLE },
+              { neonatalPatientId: patientId, status: AppointmentStatus.AT_RISK_NON_RESPONSIVE },
+              { neonatalPatientId: patientId, status: AppointmentStatus.FOLLOW_UP_REQUIRED },
+            ]
+          });
+        }
+
+        const now = new Date();
+        const apptDateStr = appt.date;
+        const timeStrOriginal = appt.time ? this._convertTo24h(appt.time) : '09:00:00';
+        const apptDateTime = new Date(`${apptDateStr}T${timeStrOriginal}`);
+        const hoursDiff = (now.getTime() - apptDateTime.getTime()) / (1000 * 60 * 60);
+
+        if (pastMisses >= 2 || hoursDiff > 48) {
+          appt.status = AppointmentStatus.FOLLOW_UP_REQUIRED;
+          await this.repo.save(appt);
+
+          const clinicianId = appt.clinicianId || appt.createdById;
+          if (clinicianId) {
+            await this.notificationsService.broadcast(
+              [clinicianId],
+              '⚠️ Moderate-Risk Patient Unavailable',
+              `Moderate-risk patient ${patientName} has marked their checkup as busy. They have missed past checkups or delayed > 48hrs. Please call to follow up.`,
+              NotificationType.ALERT,
+            );
+          }
+
+          let patientUserId: string | null = null;
+          if (prenatalPatient) patientUserId = prenatalPatient.userId;
+          else if (neonatalPatient) patientUserId = neonatalPatient.userId;
+
+          if (patientUserId) {
+            for (let i = 1; i <= 3; i++) {
+              const reminderTime = new Date();
+              reminderTime.setDate(reminderTime.getDate() + i);
+              reminderTime.setHours(9, 0, 0, 0);
+
+              await this.remindersService.create(patientUserId, {
+                title: `📅 Follow-up: Reschedule Checkup`,
+                body: `Hi ${patientName}, please contact your clinician to reschedule your missed prenatal checkup as soon as possible.`,
+                type: ReminderType.APPOINTMENT,
+                frequency: ReminderFrequency.ONCE,
+                scheduledFor: reminderTime.toISOString(),
+                appointmentId: appt.id,
+                metadata: { risk: 'moderate', autoGenerated: true },
+              });
+            }
+          }
+        } else {
+          // First time / minor delay: behave like low risk branch but log it
+          let rescheduleDate = new Date();
+          
+          if (preferredTime === 'later_today') {
+            rescheduleDate.setHours(rescheduleDate.getHours() + 4);
+          } else if (preferredTime === 'tomorrow') {
+            rescheduleDate.setDate(rescheduleDate.getDate() + 1);
+          } else if (preferredTime === 'this_week') {
+            rescheduleDate.setDate(rescheduleDate.getDate() + 3);
+          } else if (preferredTime === 'custom' && customDateTime) {
+            const parsed = new Date(customDateTime);
+            if (!isNaN(parsed.getTime())) {
+              rescheduleDate = parsed;
+            } else {
+              rescheduleDate.setDate(rescheduleDate.getDate() + 1);
+            }
+          } else {
+            rescheduleDate.setDate(rescheduleDate.getDate() + 1);
+          }
+
+          const dateStr = rescheduleDate.toISOString().split('T')[0];
+          const hours = rescheduleDate.getHours();
+          const mins = rescheduleDate.getMinutes();
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          const formattedHours = hours % 12 || 12;
+          const timeStrNew = `${formattedHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${ampm}`;
+
+          appt.date = dateStr;
+          appt.time = timeStrNew;
+          appt.status = AppointmentStatus.RESCHEDULE_REQUESTED;
+          appt.notes = (appt.notes || '') + `\n[Moderate Risk Reschedule Proposed for ${dateStr} at ${timeStrNew}]`;
+          await this.repo.save(appt);
+
+          let patientUserId: string | null = null;
+          if (prenatalPatient) patientUserId = prenatalPatient.userId;
+          else if (neonatalPatient) patientUserId = neonatalPatient.userId;
+
+          if (patientUserId) {
+            await this.notificationsService.create({
+              userId: patientUserId,
+              title: '📅 Appointment Rescheduled',
+              body: `We've proposed a new slot for your checkup: ${dateStr} at ${timeStrNew}. Please confirm if you are available.`,
+              type: NotificationType.APPOINTMENT,
+            });
+          }
+        }
+
+      } else {
+        let rescheduleDate = new Date();
+        
+        if (preferredTime === 'later_today') {
+          rescheduleDate.setHours(rescheduleDate.getHours() + 4);
+        } else if (preferredTime === 'tomorrow') {
+          rescheduleDate.setDate(rescheduleDate.getDate() + 1);
+        } else if (preferredTime === 'this_week') {
+          rescheduleDate.setDate(rescheduleDate.getDate() + 3);
+        } else if (preferredTime === 'custom' && customDateTime) {
+          const parsed = new Date(customDateTime);
+          if (!isNaN(parsed.getTime())) {
+            rescheduleDate = parsed;
+          } else {
+            rescheduleDate.setDate(rescheduleDate.getDate() + 1);
+          }
+        } else {
+          rescheduleDate.setDate(rescheduleDate.getDate() + 1);
+        }
+
+        const dateStr = rescheduleDate.toISOString().split('T')[0];
+        const hours = rescheduleDate.getHours();
+        const mins = rescheduleDate.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const formattedHours = hours % 12 || 12;
+        const timeStr = `${formattedHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${ampm}`;
+
+        appt.date = dateStr;
+        appt.time = timeStr;
+        appt.status = AppointmentStatus.RESCHEDULE_REQUESTED;
+        appt.notes = (appt.notes || '') + `\n[Reschedule Proposed for ${dateStr} at ${timeStr}]`;
+        await this.repo.save(appt);
+
+        let patientUserId: string | null = null;
+        if (prenatalPatient) patientUserId = prenatalPatient.userId;
+        else if (neonatalPatient) patientUserId = neonatalPatient.userId;
+
+        if (patientUserId) {
+          await this.notificationsService.create({
+            userId: patientUserId,
+            title: '📅 Appointment Rescheduled',
+            body: `We've proposed a new slot for your checkup: ${dateStr} at ${timeStr}. Please confirm if you are available.`,
+            type: NotificationType.APPOINTMENT,
+          });
+        }
+      }
+
+      this.eventsGateway.emit(SocketEvent.APPOINTMENT_CHANGED, { action: 'updated' });
+    } catch (e) {
+      this.logger.error(`Error in handlePatientUnavailable: ${e.message}`, e.stack);
+    }
+  }
+
+  @Cron('0 0 * * * *', { name: 'check-overdue-appointments', timeZone: 'Africa/Blantyre' })
+  async checkOverdueAppointments(): Promise<void> {
+    try {
+      this.logger.log('Running checkOverdueAppointments cron job...');
+      const now = new Date();
+      
+      const overdueAppts = await this.repo.find({
+        where: [
+          { status: AppointmentStatus.PENDING_CONFIRMATION },
+          { status: AppointmentStatus.RESCHEDULE_REQUESTED },
+          { status: AppointmentStatus.SCHEDULED }
+        ]
+      });
+
+      this.logger.log(`Found ${overdueAppts.length} active/pending appointments. Checking for overdue status...`);
+
+      for (const appt of overdueAppts) {
+        const apptDateTime = new Date(`${appt.date}T${appt.time ? this._convertTo24h(appt.time) : '09:00:00'}`);
+        const hoursDiff = (now.getTime() - apptDateTime.getTime()) / (1000 * 60 * 60);
+
+        if (hoursDiff >= 24) {
+          this.logger.log(`Appointment ${appt.id} is overdue by ${hoursDiff.toFixed(1)} hours.`);
+          
+          const patientId = appt.prenatalPatientId || appt.neonatalPatientId;
+          let repeatedMisses = false;
+
+          if (patientId) {
+            const pastMissedCount = await this.repo.count({
+              where: [
+                { prenatalPatientId: patientId, status: AppointmentStatus.NO_RESPONSE },
+                { prenatalPatientId: patientId, status: AppointmentStatus.MISSED },
+                { prenatalPatientId: patientId, status: AppointmentStatus.PATIENT_UNAVAILABLE },
+                { prenatalPatientId: patientId, status: AppointmentStatus.AT_RISK_NON_RESPONSIVE },
+                { neonatalPatientId: patientId, status: AppointmentStatus.NO_RESPONSE },
+                { neonatalPatientId: patientId, status: AppointmentStatus.MISSED },
+                { neonatalPatientId: patientId, status: AppointmentStatus.PATIENT_UNAVAILABLE },
+                { neonatalPatientId: patientId, status: AppointmentStatus.AT_RISK_NON_RESPONSIVE },
+              ]
+            });
+            if (pastMissedCount >= 2) {
+              repeatedMisses = true;
+            }
+          }
+
+          if (repeatedMisses) {
+            appt.status = AppointmentStatus.AT_RISK_NON_RESPONSIVE;
+            await this.repo.save(appt);
+
+            await this.alertsService.createFromRisk({
+              patientName: appt.patientName,
+              patientStatus: 'critical',
+              contact: appt.patientContact || 'N/A',
+              reason: `Patient is AT_RISK_NON_RESPONSIVE. Multiple missed appointments.`,
+              symptoms: [],
+              severity: AlertSeverity.HIGH,
+              patientId: appt.prenatalPatientId || appt.neonatalPatientId,
+              clinicianId: appt.clinicianId || appt.createdById,
+            });
+
+            this.logger.log(`Appointment ${appt.id} status changed to AT_RISK_NON_RESPONSIVE`);
+          } else {
+            appt.status = AppointmentStatus.NO_RESPONSE;
+            await this.repo.save(appt);
+
+            let patientUserId: string | null = null;
+            if (appt.prenatalPatientId) {
+              const p = await this.prenatalRepo.findOne({ where: { id: appt.prenatalPatientId } });
+              patientUserId = p?.userId ?? null;
+            } else if (appt.neonatalPatientId) {
+              const p = await this.neonatalRepo.findOne({ where: { id: appt.neonatalPatientId } });
+              patientUserId = p?.userId ?? null;
+            }
+
+            if (patientUserId) {
+              await this.notificationsService.create({
+                userId: patientUserId,
+                title: '📅 Missed Checkup Reminder',
+                body: `You missed your checkup scheduled for ${appt.date}. Please open the app to confirm or reschedule.`,
+                type: NotificationType.APPOINTMENT,
+              });
+            }
+
+            const clinicianId = appt.clinicianId || appt.createdById;
+            if (clinicianId) {
+              await this.notificationsService.broadcast(
+                [clinicianId],
+                '⚠️ Patient Missed Checkup (No Response)',
+                `Patient ${appt.patientName} did not respond to checkup scheduled on ${appt.date}.`,
+                NotificationType.ALERT,
+              );
+            }
+
+            this.logger.log(`Appointment ${appt.id} status changed to NO_RESPONSE`);
+          }
+        }
+      }
+    } catch (e) {
+      this.logger.error('Error in checkOverdueAppointments cron job:', e);
+    }
+  }
+
+  private _convertTo24h(timeStr: string): string {
+    try {
+      const parts = timeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+      if (!parts) return '09:00:00';
+      let hour = parseInt(parts[1], 10);
+      const min = parts[2];
+      const ampm = parts[3].toUpperCase();
+      if (ampm === 'PM' && hour < 12) hour += 12;
+      if (ampm === 'AM' && hour === 12) hour = 0;
+      return `${hour.toString().padStart(2, '0')}:${min}:00`;
+    } catch (_) {
+      return '09:00:00';
     }
   }
 }

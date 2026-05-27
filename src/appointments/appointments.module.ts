@@ -12,6 +12,9 @@ import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 import { AnalyticsModule } from '../analytics/analytics.module';
 
 import { RiskEngineModule } from '../risk-engine/risk-engine.module';
+import { AlertsModule } from '../alerts/alerts.module';
+import { RemindersModule } from '../reminders/reminders.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
@@ -19,6 +22,9 @@ import { RiskEngineModule } from '../risk-engine/risk-engine.module';
     NotificationsModule,
     UsersModule,
     RiskEngineModule,
+    AlertsModule,
+    RemindersModule,
+    ActivityLogModule,
     forwardRef(() => AnalyticsModule),
   ],
   providers: [AppointmentsService, ANCTrackingService],

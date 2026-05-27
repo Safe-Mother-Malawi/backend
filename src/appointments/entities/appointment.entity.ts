@@ -12,11 +12,19 @@ export enum AppointmentType {
 }
 
 export enum AppointmentStatus {
-  SCHEDULED = 'scheduled',
+  PENDING_CONFIRMATION = 'pending_confirmation',
   CONFIRMED = 'confirmed',
+  PATIENT_UNAVAILABLE = 'patient_unavailable',
+  RESCHEDULE_REQUESTED = 'reschedule_requested',
+  MISSED = 'missed',
+  FOLLOW_UP_REQUIRED = 'follow_up_required',
+  URGENT_ATTENTION_REQUIRED = 'urgent_attention_required',
   COMPLETED = 'completed',
+  NO_RESPONSE = 'no_response',
+  AT_RISK_NON_RESPONSIVE = 'at_risk_non_responsive',
   CANCELLED = 'cancelled',
-  NO_SHOW = 'no_show', // For attendance tracking
+  SCHEDULED = 'scheduled', // Compatibility fallback
+  NO_SHOW = 'no_show', // Compatibility fallback
 }
 
 export enum ANCVisitType {
@@ -38,7 +46,7 @@ export class Appointment {
   @Column({ type: 'enum', enum: AppointmentType, default: AppointmentType.OTHER })
   type: AppointmentType;
 
-  @Column({ type: 'enum', enum: AppointmentStatus, default: AppointmentStatus.SCHEDULED })
+  @Column({ type: 'enum', enum: AppointmentStatus, default: AppointmentStatus.PENDING_CONFIRMATION })
   status: AppointmentStatus;
 
   @Column({ type: 'date' }) date: string;

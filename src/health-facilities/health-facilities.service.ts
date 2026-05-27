@@ -5,12 +5,24 @@ import { HealthFacility } from './entities/health-facility.entity';
 import { FACILITY_SEED } from './seed/facilities.seed';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ActivityAction } from '../activity-log/entities/activity-log.entity';
+import { User, UserRole } from '../users/entities/user.entity';
+import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
+import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
+import { Appointment, AppointmentStatus } from '../appointments/entities/appointment.entity';
 
 @Injectable()
 export class HealthFacilitiesService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(HealthFacility)
     private readonly repo: Repository<HealthFacility>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    @InjectRepository(PrenatalPatient)
+    private readonly prenatalRepo: Repository<PrenatalPatient>,
+    @InjectRepository(NeonatalPatient)
+    private readonly neonatalRepo: Repository<NeonatalPatient>,
+    @InjectRepository(Appointment)
+    private readonly appointmentRepo: Repository<Appointment>,
     private readonly activityLog: ActivityLogService,
   ) {}
 
@@ -356,6 +368,80 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
       byType,
       byAuthority,
       byUrbanRural,
+    };
+  }
+
+  /** Get all clinicians assigned to a facility */
+  async getFacilityClinicians(id: string): Promise<User[]> {
+    return this.userRepo.find({
+      where: { facility: id, role: UserRole.CLINICIAN },
+      order: { fullName: 'ASC' },
+      select: ['id', 'fullName', 'email', 'phone', 'role', 'isActive', 'lastActiveAt'],
+    });
+  }
+
+  /** Get statistics for a specific facility */
+  async getFacilityStatistics(id: string): Promise<{
+    totalClinicians: number;
+    totalPatients: number;
+    activeAppointments: number;
+    highRiskMothers: number;
+  }> {
+    // 1. Total clinicians
+    const totalClinicians = await this.userRepo.count({
+      where: { facility: id, role: UserRole.CLINICIAN },
+    });
+
+    // 2. Total patients mapped to this facility
+    const prenatalCount = await this.prenatalRepo.count({
+      where: { facilityId: id },
+    });
+    const neonatalCount = await this.neonatalRepo.count({
+      where: { facilityId: id },
+    });
+    const totalPatients = prenatalCount + neonatalCount;
+
+    // 3. High-risk mothers
+    const highRiskMothers = await this.prenatalRepo.count({
+      where: [
+        { facilityId: id, riskLevel: 'high' },
+        { facilityId: id, riskLevel: 'critical' },
+      ],
+    });
+
+    // 4. Active appointments (using query builder to handle both prenatal and neonatal facility mapping)
+    // Actually, appointments themselves might not have a facilityId, but we can count appointments
+    // belonging to patients mapped to this facility.
+    // However, appointments have `clinicianId`. If clinician belongs to facility, we can count it.
+    // Or we just count appointments where `location` matches facility name.
+    // A simpler way: query appointments linked to clinicians of this facility
+    let activeAppointments = 0;
+    const clinicians = await this.userRepo.find({
+      where: { facility: id, role: UserRole.CLINICIAN },
+      select: ['id'],
+    });
+    
+    if (clinicians.length > 0) {
+      const clinicianIds = clinicians.map(c => c.id);
+      activeAppointments = await this.appointmentRepo
+        .createQueryBuilder('appt')
+        .where('appt.clinicianId IN (:...clinicianIds)', { clinicianIds })
+        .andWhere('appt.status IN (:...statuses)', {
+          statuses: [
+            AppointmentStatus.SCHEDULED,
+            AppointmentStatus.CONFIRMED,
+            AppointmentStatus.RESCHEDULE_REQUESTED,
+            AppointmentStatus.PENDING_CONFIRMATION,
+          ],
+        })
+        .getCount();
+    }
+
+    return {
+      totalClinicians,
+      totalPatients,
+      activeAppointments,
+      highRiskMothers,
     };
   }
 }

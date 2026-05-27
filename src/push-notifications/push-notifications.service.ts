@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DeviceToken } from './entities/device-token.entity';
@@ -14,6 +14,7 @@ export class PushNotificationsService {
   constructor(
     @InjectRepository(DeviceToken)
     private readonly deviceTokenRepo: Repository<DeviceToken>,
+    @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     private readonly firebaseService: FirebaseService,
   ) {}

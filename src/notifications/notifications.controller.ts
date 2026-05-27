@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { CreateBroadcastDto } from './dto/create-broadcast.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -25,10 +26,47 @@ export class NotificationsController {
   }
 
   /**
-   * Admin Broadcast Message Endpoints
+   * Admin Broadcast Message Endpoints (New version)
    */
 
-  /** Admin sends broadcast message to all system users */
+  @Post('broadcasts')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async createBroadcast(
+    @CurrentUser() user: User,
+    @Body() dto: CreateBroadcastDto,
+  ) {
+    return this.service.createBroadcast(dto, user.id);
+  }
+
+  @Get('broadcasts')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getBroadcasts(
+    @Query('limit') limit: number = 50,
+    @Query('offset') offset: number = 0,
+  ) {
+    return this.service.getBroadcasts(limit, offset);
+  }
+
+  @Get('broadcasts/:id')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getBroadcastById(@Param('id') id: string) {
+    return this.service.getBroadcastById(id);
+  }
+
+  @Post('broadcasts/:id/send')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async forceSendBroadcast(@Param('id') id: string) {
+    return this.service.processBroadcast(id);
+  }
+
+  /**
+   * Backwards compatible endpoints (can be deprecated later)
+   */
+
   @Post('broadcast/all')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
@@ -44,7 +82,6 @@ export class NotificationsController {
     );
   }
 
-  /** Admin sends broadcast message to specific role */
   @Post('broadcast/role/:role')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
@@ -62,7 +99,6 @@ export class NotificationsController {
     );
   }
 
-  /** Admin sends broadcast message to specific district */
   @Post('broadcast/district/:district')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
@@ -80,7 +116,6 @@ export class NotificationsController {
     );
   }
 
-  /** Admin sends broadcast message to specific users */
   @Post('broadcast/users')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
@@ -97,7 +132,6 @@ export class NotificationsController {
     );
   }
 
-  /** Get broadcast history (admin only) */
   @Get('broadcast/history')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)

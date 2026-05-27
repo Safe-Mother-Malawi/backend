@@ -8,6 +8,9 @@ export enum NotificationType {
   ALERT = 'alert',
   APPOINTMENT = 'appointment',
   INFO = 'info',
+  EMERGENCY = 'emergency',
+  REMINDER = 'reminder',
+  SYSTEM_UPDATE = 'system_update',
 }
 
 @Entity('notifications')

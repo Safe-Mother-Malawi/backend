@@ -496,6 +496,37 @@ export class AnalyticsService {
   }
 
   /**
+   * Get appointment statuses distribution
+   */
+  async getAppointmentStatuses() {
+    const statuses = await this.appointmentRepo.manager.query(`
+      SELECT status, COUNT(*)::int as count
+      FROM appointments
+      GROUP BY status
+      ORDER BY count DESC
+    `);
+    return statuses;
+  }
+
+  /**
+   * Get top 5 clinicians by appointment activity
+   */
+  async getClinicianActivity() {
+    const activity = await this.appointmentRepo.manager.query(`
+      SELECT 
+        u."fullName" as name,
+        COUNT(a.id)::int as count
+      FROM users u
+      LEFT JOIN appointments a ON u.id = a."clinicianId"
+      WHERE u.role = 'clinician'
+      GROUP BY u.id, u."fullName"
+      ORDER BY count DESC
+      LIMIT 5
+    `);
+    return activity;
+  }
+
+  /**
    * Clinician Dashboard - specific operational care metrics for a clinician
    */
   async getClinicianDashboard(clinicianId: string) {

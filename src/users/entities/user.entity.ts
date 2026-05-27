@@ -5,7 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { HealthFacility } from '../../health-facilities/entities/health-facility.entity';
 
 export enum UserRole {
   PRENATAL = 'prenatal',
@@ -126,6 +129,10 @@ export class User {
 
   @Column({ type: 'varchar', nullable: true })
   facility: string | null;
+
+  @ManyToOne(() => HealthFacility, facility => facility.clinicians, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'facility' })
+  assignedFacility: HealthFacility | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   lastActiveAt: Date | null;

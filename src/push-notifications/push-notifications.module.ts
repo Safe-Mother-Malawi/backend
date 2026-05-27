@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PushNotificationsService } from './push-notifications.service';
 import { BroadcastService } from './services/broadcast.service';
@@ -11,7 +11,7 @@ import { FirebaseModule } from '../firebase/firebase.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([DeviceToken, User]),
-    NotificationsModule,
+    forwardRef(() => NotificationsModule),
     FirebaseModule,
   ],
   providers: [PushNotificationsService, BroadcastService],

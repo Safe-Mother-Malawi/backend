@@ -10,11 +10,19 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User, UserRole } from '../users/entities/user.entity';
-import { IsEnum } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 class UpdateStatusDto {
   @IsEnum(AppointmentStatus)
   status: AppointmentStatus;
+
+  @IsOptional()
+  @IsString()
+  preferredTimeSelection?: string;
+
+  @IsOptional()
+  @IsString()
+  customDateTime?: string;
 }
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -80,9 +88,9 @@ export class AppointmentsController {
   }
 
   @Patch(':id/status')
-  @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
+  @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO, UserRole.PRENATAL, UserRole.NEONATAL)
   updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
-    return this.service.updateStatus(id, dto.status);
+    return this.service.updateStatus(id, dto.status, dto.preferredTimeSelection, dto.customDateTime);
   }
 
   @Delete(':id')

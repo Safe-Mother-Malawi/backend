@@ -72,6 +72,16 @@ export class AnalyticsController {
     return this.service.getANCComplianceSummary(district);
   }
 
+  @Get('clinician-activity')
+  getClinicianActivity() {
+    return this.service.getClinicianActivity();
+  }
+
+  @Get('appointment-statuses')
+  getAppointmentStatuses() {
+    return this.service.getAppointmentStatuses();
+  }
+
   @Get('clinician-dashboard')
   @Roles(UserRole.CLINICIAN, UserRole.ADMIN, UserRole.DHO)
   getClinicianDashboard(

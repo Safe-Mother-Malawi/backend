@@ -152,6 +152,42 @@ export class HealthFacilitiesController {
     return this.service.getFacilitiesStats(user.district);
   }
 
+  @Get('dho/facilities/:id/clinicians')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DHO, UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getFacilityClinicians(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+  ) {
+    const facility = await this.service.findById(id);
+    if (!facility) {
+      throw new NotFoundException(`Health facility with ID ${id} not found`);
+    }
+    if (user.role === UserRole.DHO && user.district !== facility.district) {
+      throw new BadRequestException('DHO can only view facilities in their own district');
+    }
+    return this.service.getFacilityClinicians(id);
+  }
+
+  @Get('dho/facilities/:id/statistics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DHO, UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getFacilityStatistics(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+  ) {
+    const facility = await this.service.findById(id);
+    if (!facility) {
+      throw new NotFoundException(`Health facility with ID ${id} not found`);
+    }
+    if (user.role === UserRole.DHO && user.district !== facility.district) {
+      throw new BadRequestException('DHO can only view facilities in their own district');
+    }
+    return this.service.getFacilityStatistics(id);
+  }
+
   @Post('dho/facilities')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.DHO, UserRole.ADMIN)

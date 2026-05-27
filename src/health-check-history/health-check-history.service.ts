@@ -80,8 +80,6 @@ export class HealthCheckHistoryService {
 
     const saved = await this.repo.save(record);
 
-    await this._createRiskAssessmentRecord(user, dto, saved, submittedBy);
-
     // Log the activity
     await this.activityLog.log({
       action: ActivityAction.HEALTH_CHECK_SUBMITTED,
@@ -102,6 +100,8 @@ export class HealthCheckHistoryService {
     if (dto.riskLevel === 'Moderate Risk' || dto.riskLevel === 'High Risk' || dto.riskLevel === 'Seek Help Immediately') {
       await this._createRiskAlert(user, dto, saved.id);
     }
+
+    await this._createRiskAssessmentRecord(user, dto, saved, submittedBy);
 
     return saved;
   }

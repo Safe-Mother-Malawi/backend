@@ -16,6 +16,7 @@ import { UsersService } from '../users/users.service';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
 import { EventsGateway, SocketEvent } from '../events/events.gateway';
+import { HealthCheckHistory } from '../health-check-history/entities/health-check-history.entity';
 
 @Injectable()
 export class RiskAssessmentsService {
@@ -26,6 +27,8 @@ export class RiskAssessmentsService {
     private readonly prenatalRepo: Repository<PrenatalPatient>,
     @InjectRepository(NeonatalPatient)
     private readonly neonatalRepo: Repository<NeonatalPatient>,
+    @InjectRepository(HealthCheckHistory)
+    private readonly healthCheckHistoryRepo: Repository<HealthCheckHistory>,
     private readonly alertsService: AlertsService,
     private readonly notificationsService: NotificationsService,
     private readonly activityLog: ActivityLogService,
@@ -165,11 +168,36 @@ export class RiskAssessmentsService {
   }
 
   async findByPatient(patientId: string): Promise<RiskAssessment[]> {
-    return this.repo.find({
+    const assessments = await this.repo.find({
       where: { patientId },
       relations: ['submittedBy'],
       order: { submittedAt: 'DESC' },
     });
+
+    const patientContext = await this._resolvePatientContext(patientId);
+    if (!patientContext?.userId) {
+      return assessments;
+    }
+
+    const histories = await this.healthCheckHistoryRepo.find({
+      where: { userId: patientContext.userId },
+      relations: ['submittedBy'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const mirroredHistoryIds = new Set(
+      assessments
+        .map((assessment) => assessment.answers?.healthCheckHistoryId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    );
+
+    const historyAssessments = histories
+      .filter((history) => !mirroredHistoryIds.has(history.id))
+      .map((history) => this._healthHistoryToRiskAssessment(history, patientContext));
+
+    return [...assessments, ...historyAssessments].sort(
+      (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+    );
   }
 
   async findOne(id: string): Promise<RiskAssessment> {
@@ -184,6 +212,69 @@ export class RiskAssessmentsService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  private async _resolvePatientContext(patientId: string): Promise<{
+    id: string;
+    userId: string | null;
+    patientName: string;
+    patientPhone: string;
+    patientType: PatientType;
+  } | null> {
+    const prenatal = await this.prenatalRepo.findOne({ where: { id: patientId } });
+    if (prenatal) {
+      return {
+        id: prenatal.id,
+        userId: prenatal.userId,
+        patientName: prenatal.fullName,
+        patientPhone: prenatal.phone,
+        patientType: PatientType.PRENATAL,
+      };
+    }
+
+    const neonatal = await this.neonatalRepo.findOne({ where: { id: patientId } });
+    if (neonatal) {
+      return {
+        id: neonatal.id,
+        userId: neonatal.userId,
+        patientName: neonatal.motherName || neonatal.babyName || 'Neonatal Patient',
+        patientPhone: neonatal.motherPhone || '',
+        patientType: PatientType.NEONATAL,
+      };
+    }
+
+    return null;
+  }
+
+  private _healthHistoryToRiskAssessment(
+    history: HealthCheckHistory,
+    patient: {
+      id: string;
+      patientName: string;
+      patientPhone: string;
+      patientType: PatientType;
+    },
+  ): RiskAssessment {
+    return {
+      id: `health-check-${history.id}`,
+      patientId: patient.id,
+      patientName: patient.patientName,
+      patientPhone: patient.patientPhone,
+      patientType: patient.patientType,
+      riskLevel: history.riskLevel as unknown as RiskLevel,
+      score: Math.round(Number(history.score) || 0),
+      message: history.message,
+      answers: {
+        ...(history.answers ?? {}),
+        healthCheckHistoryId: history.id,
+        maxScore: history.maxScore,
+        percentage: history.percentage,
+        symptoms: history.symptoms ?? [],
+      },
+      submittedById: history.submittedById || history.userId,
+      submittedBy: history.submittedBy ?? null,
+      submittedAt: history.createdAt,
+    } as RiskAssessment;
+  }
 
   /**
    * Resolve the district and healthCentre for a patient record.

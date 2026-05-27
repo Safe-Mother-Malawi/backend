@@ -39,6 +39,8 @@ export class PatientsService {
    * Called from AuthService after registration.
    */
   async linkOrCreatePatientRecord(user: User): Promise<void> {
+    await this.syncPatientRecordForUser(user);
+
     const phone = user.phone;
 
     if (user.role === UserRole.PRENATAL) {
@@ -158,6 +160,183 @@ export class PatientsService {
   }
 
   /**
+   * Self-healing sync used by patient lists and mobile profile endpoints.
+   * This backfills older mobile users that were created before patient mirroring
+   * existed, and keeps profile fields aligned after edits.
+   */
+  async syncMobileUsersToPatientRecords(
+    role?: UserRole.PRENATAL | UserRole.NEONATAL,
+  ): Promise<void> {
+    const roles = role ? [role] : [UserRole.PRENATAL, UserRole.NEONATAL];
+    const usersByRole = await Promise.all(
+      roles.map((item) => this.usersService.findAll({ role: item })),
+    );
+
+    for (const user of usersByRole.flat()) {
+      try {
+        await this.syncPatientRecordForUser(user);
+      } catch (error) {
+        console.error(`Failed to sync patient record for user ${user.id}: ${error.message}`);
+      }
+    }
+  }
+
+  async syncPatientRecordForUser(user: User): Promise<void> {
+    if (user.role === UserRole.PRENATAL) {
+      await this._syncPrenatalUser(user);
+    } else if (user.role === UserRole.NEONATAL) {
+      await this._syncNeonatalUser(user);
+    }
+  }
+
+  private async _syncPrenatalUser(user: User): Promise<void> {
+    let existing = await this.prenatalRepo.findOne({ where: { userId: user.id } });
+    existing ??= await this.prenatalRepo.findOne({ where: { phone: user.phone } });
+
+    const syncedFields = this._compact({
+      fullName: user.fullName,
+      phone: user.phone,
+      email: user.email,
+      age: user.age,
+      nationality: user.nationality,
+      district: user.district,
+      facilityName: user.facilityName,
+      pregnancyMonths: user.pregnancyMonths,
+      pregnancyWeeks: user.pregnancyWeeks,
+      expectedDeliveryDate: user.expectedDeliveryDate,
+      lmpDate: user.lmpDate,
+      village: user.village,
+      gravida: user.gravida,
+      parity: user.parity,
+      existingConditions: user.existingConditions,
+      emergencyContact: user.emergencyContact,
+      userId: user.id,
+    }) as Partial<PrenatalPatient>;
+
+    if (existing) {
+      const wasUnlinked = !existing.userId;
+      await this.prenatalRepo.update(existing.id, syncedFields);
+
+      if (wasUnlinked) {
+        await this.activityLog.log({
+          action: ActivityAction.PATIENT_LINKED,
+          actorId: user.id,
+          description: `Prenatal patient ${existing.fullName} linked to mobile account`,
+          resourceType: 'prenatal_patient',
+          resourceId: existing.id,
+        });
+      }
+      return;
+    }
+
+    const patient = this.prenatalRepo.create({
+      ...syncedFields,
+      registeredById: null,
+    });
+    const saved = await this.prenatalRepo.save(patient);
+
+    await this.activityLog.log({
+      action: ActivityAction.PATIENT_CREATED,
+      actorId: user.id,
+      description: `Prenatal patient ${user.fullName} self-registered via mobile`,
+      resourceType: 'prenatal_patient',
+      resourceId: saved.id,
+      meta: { district: user.district, facilityName: user.facilityName },
+    });
+
+    if (user.lmpDate) {
+      await this.appointmentsService.scheduleInitialAnc(
+        saved.id,
+        user.lmpDate,
+        saved.fullName,
+        saved.district || undefined,
+      );
+    }
+  }
+
+  private async _syncNeonatalUser(user: User): Promise<void> {
+    let existing = await this.neonatalRepo.findOne({ where: { userId: user.id } });
+    existing ??= await this.neonatalRepo.findOne({ where: { motherPhone: user.phone } });
+
+    const syncedFields = this._compact({
+      motherName: user.fullName,
+      motherPhone: user.phone,
+      motherEmail: user.email,
+      district: user.district,
+      facilityName: user.facilityName,
+      babyName: user.babyName || user.fullName,
+      dateOfBirth: user.babyDob ? new Date(user.babyDob) : undefined,
+      babyGender: user.babyGender,
+      birthWeight: this._parseNumber(user.babyBirthWeight),
+      userId: user.id,
+    }) as Partial<NeonatalPatient>;
+
+    if (existing) {
+      const wasUnlinked = !existing.userId;
+      await this.neonatalRepo.update(existing.id, syncedFields);
+
+      if (wasUnlinked) {
+        await this.activityLog.log({
+          action: ActivityAction.PATIENT_LINKED,
+          actorId: user.id,
+          description: `Neonatal patient ${existing.babyName} linked to mobile account`,
+          resourceType: 'neonatal_patient',
+          resourceId: existing.id,
+        });
+      }
+      return;
+    }
+
+    const patient = this.neonatalRepo.create({
+      ...syncedFields,
+      registeredById: null,
+    });
+
+    const prenatalRecord = await this.prenatalRepo.findOne({ where: { phone: user.phone } });
+    if (prenatalRecord) {
+      patient.prenatalPatientId = prenatalRecord.id;
+    }
+
+    const saved = await this.neonatalRepo.save(patient);
+
+    if (user.babyDob) {
+      try {
+        await this.trackingService.seedVaccines(saved.id, new Date(user.babyDob));
+        await this.appointmentsService.scheduleInitialNeonatalVisit(
+          saved.id,
+          user.babyDob,
+          saved.babyName || 'Baby',
+          saved.district || undefined,
+        );
+      } catch (_) { /* non-critical */ }
+    }
+
+    await this.activityLog.log({
+      action: ActivityAction.PATIENT_CREATED,
+      actorId: user.id,
+      description: `Neonatal patient ${saved.babyName} (mother: ${user.fullName}) self-registered via mobile`,
+      resourceType: 'neonatal_patient',
+      resourceId: saved.id,
+      meta: { district: user.district, facilityName: user.facilityName },
+    });
+  }
+
+  private _compact<T extends Record<string, unknown>>(value: T): Partial<T> {
+    return Object.entries(value).reduce<Partial<T>>((acc, [key, entry]) => {
+      if (entry !== undefined && entry !== null && entry !== '') {
+        acc[key as keyof T] = entry as T[keyof T];
+      }
+      return acc;
+    }, {});
+  }
+
+  private _parseNumber(value?: string | null): number | undefined {
+    if (!value) return undefined;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  /**
    * @deprecated Use linkOrCreatePatientRecord instead.
    * Kept for backward compatibility.
    */
@@ -169,6 +348,11 @@ export class PatientsService {
    * Get the patient record linked to a mobile user account.
    */
   async getMyPrenatalRecord(userId: string): Promise<PrenatalPatient | null> {
+    const user = await this.usersService.findById(userId);
+    if (user?.role === UserRole.PRENATAL) {
+      await this.syncPatientRecordForUser(user);
+    }
+
     return this.prenatalRepo.findOne({
       where: { userId },
       relations: ['registeredBy'],
@@ -176,6 +360,11 @@ export class PatientsService {
   }
 
   async getMyNeonatalRecord(userId: string): Promise<NeonatalPatient | null> {
+    const user = await this.usersService.findById(userId);
+    if (user?.role === UserRole.NEONATAL) {
+      await this.syncPatientRecordForUser(user);
+    }
+
     return this.neonatalRepo.findOne({
       where: { userId },
       relations: ['registeredBy'],
@@ -248,6 +437,8 @@ export class PatientsService {
   }
 
   async findAllPrenatal(user: User, search?: string): Promise<PrenatalPatient[]> {
+    await this.syncMobileUsersToPatientRecords(UserRole.PRENATAL);
+
     const qb = this.prenatalRepo.createQueryBuilder('p')
       .leftJoinAndSelect('p.registeredBy', 'registeredBy')
       .orderBy('p.createdAt', 'DESC');
@@ -423,6 +614,8 @@ export class PatientsService {
   }
 
   async findAllNeonatal(user: User, search?: string): Promise<NeonatalPatient[]> {
+    await this.syncMobileUsersToPatientRecords(UserRole.NEONATAL);
+
     const qb = this.neonatalRepo.createQueryBuilder('p')
       .leftJoinAndSelect('p.registeredBy', 'registeredBy')
       .orderBy('p.createdAt', 'DESC');

@@ -118,7 +118,8 @@ export class NotificationsService {
       await this.processBroadcast(broadcast.id);
     }
 
-    return this.broadcastRepo.findOne({ where: { id: broadcast.id } });
+    const saved = await this.broadcastRepo.findOne({ where: { id: broadcast.id } });
+    return saved ?? broadcast;
   }
 
   async getBroadcasts(limit: number = 50, offset: number = 0): Promise<{ broadcasts: BroadcastMessage[], total: number }> {

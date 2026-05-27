@@ -387,27 +387,45 @@ export class HealthFacilitiesService implements OnApplicationBootstrap {
     activeAppointments: number;
     highRiskMothers: number;
   }> {
+    const facility = await this.repo.findOne({ where: { id } });
+    const facilityName = facility?.facilityName ?? id;
+    const district = facility?.district ?? null;
+
     // 1. Total clinicians
     const totalClinicians = await this.userRepo.count({
       where: { facility: id, role: UserRole.CLINICIAN },
     });
 
-    // 2. Total patients mapped to this facility
-    const prenatalCount = await this.prenatalRepo.count({
-      where: { facilityId: id },
-    });
-    const neonatalCount = await this.neonatalRepo.count({
-      where: { facilityId: id },
-    });
+    // 2. Total patients mapped to this facility by facility name/district.
+    const prenatalQuery = this.prenatalRepo
+      .createQueryBuilder('p')
+      .where('LOWER(p.facilityName) = LOWER(:facilityName)', { facilityName });
+    const neonatalQuery = this.neonatalRepo
+      .createQueryBuilder('n')
+      .where('LOWER(n.facilityName) = LOWER(:facilityName)', { facilityName });
+
+    if (district) {
+      prenatalQuery.andWhere('LOWER(p.district) = LOWER(:district)', { district });
+      neonatalQuery.andWhere('LOWER(n.district) = LOWER(:district)', { district });
+    }
+
+    const prenatalCount = await prenatalQuery.getCount();
+    const neonatalCount = await neonatalQuery.getCount();
     const totalPatients = prenatalCount + neonatalCount;
 
     // 3. High-risk mothers
-    const highRiskMothers = await this.prenatalRepo.count({
-      where: [
-        { facilityId: id, riskLevel: 'high' },
-        { facilityId: id, riskLevel: 'critical' },
-      ],
-    });
+    const highRiskQuery = this.prenatalRepo
+      .createQueryBuilder('p')
+      .where('LOWER(p.facilityName) = LOWER(:facilityName)', { facilityName })
+      .andWhere('LOWER(p.currentMaternalStatus) IN (:...statuses)', {
+        statuses: ['at-risk', 'critical'],
+      });
+
+    if (district) {
+      highRiskQuery.andWhere('LOWER(p.district) = LOWER(:district)', { district });
+    }
+
+    const highRiskMothers = await highRiskQuery.getCount();
 
     // 4. Active appointments (using query builder to handle both prenatal and neonatal facility mapping)
     // Actually, appointments themselves might not have a facilityId, but we can count appointments

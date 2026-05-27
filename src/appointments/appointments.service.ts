@@ -719,7 +719,7 @@ export class AppointmentsService {
 
         await this.activityLogService.log({
           action: ActivityAction.ALERT_CREATED,
-          actorId: appt.clinicianId || appt.createdById,
+          actorId: (appt.clinicianId ?? appt.createdById) ?? undefined,
           description: `Assigned nearby Community Health Worker to visit patient ${patientName} at home due to critical risk and unavailable checkup.`,
           resourceType: 'appointment',
           resourceId: appt.id,

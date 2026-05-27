@@ -53,9 +53,18 @@ export class BroadcastService {
 
   /**
    * Send broadcast to users by role
+   * Supported roles:
+   * - 'prenatal' - Prenatal mobile users
+   * - 'neonatal' - Neonatal mobile users
+   * - 'mobile-users' - All mobile users (prenatal + neonatal)
+   * - 'clinician' - Clinicians
+   * - 'dho' - District Health Officers
+   * - 'admin' - Administrators
+   * - 'all-staff' - All staff (clinician + dho + admin)
+   * - 'patient' - All mobile users (legacy, same as mobile-users)
    */
   async sendBroadcastByRole(
-    role: 'patient' | 'clinician' | 'admin',
+    role: 'prenatal' | 'neonatal' | 'mobile-users' | 'clinician' | 'dho' | 'admin' | 'all-staff' | 'patient',
     dto: SendBroadcastDto,
   ): Promise<BroadcastResult> {
     try {
@@ -63,8 +72,20 @@ export class BroadcastService {
 
       let users: User[] = [];
 
-      if (role === 'patient') {
-        // Get both prenatal and neonatal users
+      if (role === 'prenatal') {
+        // Get prenatal mobile users only
+        users = await this.userRepo.find({
+          where: { role: UserRole.PRENATAL, isActive: true },
+          select: ['id'],
+        });
+      } else if (role === 'neonatal') {
+        // Get neonatal mobile users only
+        users = await this.userRepo.find({
+          where: { role: UserRole.NEONATAL, isActive: true },
+          select: ['id'],
+        });
+      } else if (role === 'mobile-users' || role === 'patient') {
+        // Get all mobile users (prenatal + neonatal)
         users = await this.userRepo.find({
           where: [
             { role: UserRole.PRENATAL, isActive: true },
@@ -73,13 +94,31 @@ export class BroadcastService {
           select: ['id'],
         });
       } else if (role === 'clinician') {
+        // Get clinicians only
         users = await this.userRepo.find({
           where: { role: UserRole.CLINICIAN, isActive: true },
           select: ['id'],
         });
+      } else if (role === 'dho') {
+        // Get DHOs only
+        users = await this.userRepo.find({
+          where: { role: UserRole.DHO, isActive: true },
+          select: ['id'],
+        });
       } else if (role === 'admin') {
+        // Get admins only
         users = await this.userRepo.find({
           where: { role: UserRole.ADMIN, isActive: true },
+          select: ['id'],
+        });
+      } else if (role === 'all-staff') {
+        // Get all staff (clinician + dho + admin)
+        users = await this.userRepo.find({
+          where: [
+            { role: UserRole.CLINICIAN, isActive: true },
+            { role: UserRole.DHO, isActive: true },
+            { role: UserRole.ADMIN, isActive: true },
+          ],
           select: ['id'],
         });
       } else {
@@ -95,6 +134,60 @@ export class BroadcastService {
       return await this.sendBroadcastToUsers(userIds, dto);
     } catch (error) {
       this.logger.error(`Error sending broadcast to ${role} users:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send broadcast to users by district
+   */
+  async sendBroadcastByDistrict(
+    district: string,
+    dto: SendBroadcastDto,
+  ): Promise<BroadcastResult> {
+    try {
+      this.logger.log(`Sending broadcast to district ${district} users...`);
+
+      // Get users by district
+      const users = await this.userRepo.find({
+        where: { district: district, isActive: true },
+        select: ['id'],
+      });
+
+      if (users.length === 0) {
+        throw new BadRequestException(
+          `No active users found for district ${district}`,
+        );
+      }
+
+      const userIds = users.map((u) => u.id);
+
+      return await this.sendBroadcastToUsers(userIds, dto);
+    } catch (error) {
+      this.logger.error(
+        `Error sending broadcast to district ${district} users:`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get all available districts
+   */
+  async getAvailableDistricts(): Promise<string[]> {
+    try {
+      const districts = await this.userRepo
+        .createQueryBuilder('user')
+        .select('DISTINCT user.district', 'district')
+        .where('user.district IS NOT NULL')
+        .where('user.isActive = :isActive', { isActive: true })
+        .orderBy('user.district', 'ASC')
+        .getRawMany();
+
+      return districts.map((d) => d.district).filter((d) => d);
+    } catch (error) {
+      this.logger.error('Error getting available districts:', error);
       throw error;
     }
   }

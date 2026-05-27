@@ -58,6 +58,7 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 import { LastActiveMiddleware } from './common/middleware/last-active.middleware';
+import { FrontendTrackingMiddleware } from './common/middleware/frontend-tracking.middleware';
 
 @Module({
   imports: [
@@ -137,6 +138,10 @@ export class AppModule implements NestModule {
   }
 
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LastActiveMiddleware).forRoutes('*');
+    consumer
+      .apply(FrontendTrackingMiddleware)
+      .forRoutes('*')
+      .apply(LastActiveMiddleware)
+      .forRoutes('*');
   }
 }

@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import * as express from 'express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { getAllowedOrigins, isOriginAllowed } from './config/frontend-config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -36,12 +37,20 @@ async function bootstrap() {
     }),
   );
 
-  // ── CORS (completely open for development) ──
+  // ── CORS Configuration for Multiple Frontends ──
+  const allowedOrigins = getAllowedOrigins();
+
   app.enableCors({
-    origin: true, // Allow all origins
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['*'], // Allow all headers
-    exposedHeaders: ['*'], // Expose all headers
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Frontend-ID', 'X-Requested-With'],
+    exposedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 200,

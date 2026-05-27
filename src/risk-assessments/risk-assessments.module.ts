@@ -9,10 +9,11 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { UsersModule } from '../users/users.module';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
+import { HealthCheckHistory } from '../health-check-history/entities/health-check-history.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RiskAssessment, PrenatalPatient, NeonatalPatient]),
+    TypeOrmModule.forFeature([RiskAssessment, PrenatalPatient, NeonatalPatient, HealthCheckHistory]),
     AlertsModule,
     NotificationsModule,
     ActivityLogModule,

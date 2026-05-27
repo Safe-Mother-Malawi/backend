@@ -37,7 +37,7 @@ export class AlertsService {
       resourceId: saved.id,
       meta: { severity: dto.severity },
     });
-    this.eventsGateway.emit(SocketEvent.ALERT_CREATED, { severity: saved.severity, district: saved.district });
+    this._broadcastAlert(saved);
     return saved;
   }
 
@@ -80,7 +80,7 @@ export class AlertsService {
       meta: { severity: data.severity, auto: true, district: data.district, facilityName: data.facilityName },
     });
 
-    this.eventsGateway.emit(SocketEvent.ALERT_CREATED, { severity: saved.severity, district: saved.district });
+    this._broadcastAlert(saved);
     this.eventsGateway.emit(SocketEvent.ANALYTICS_UPDATED, { type: 'alert' });
 
     // For critical or high alerts, reach the patient via SMS and outbound call
@@ -95,6 +95,19 @@ export class AlertsService {
     }
 
     return saved;
+  }
+
+  private _broadcastAlert(alert: Alert): void {
+    this.eventsGateway.emit(SocketEvent.ALERT_CREATED, {
+      id: alert.id,
+      patientName: alert.patientName,
+      patientStatus: alert.patientStatus,
+      severity: alert.severity,
+      district: alert.district,
+      facilityName: alert.facilityName,
+      attended: alert.attended,
+      createdAt: alert.createdAt,
+    });
   }
 
   /**

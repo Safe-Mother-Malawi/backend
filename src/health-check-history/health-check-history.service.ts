@@ -11,6 +11,7 @@ import { AlertsService } from '../alerts/alerts.service';
 import { AlertSeverity } from '../alerts/entities/alert.entity';
 import { PrenatalPatient } from '../patients/entities/prenatal-patient.entity';
 import { NeonatalPatient } from '../patients/entities/neonatal-patient.entity';
+import { RiskAssessment, PatientType, RiskLevel } from '../risk-assessments/entities/risk-assessment.entity';
 
 @Injectable()
 export class HealthCheckHistoryService {
@@ -21,6 +22,8 @@ export class HealthCheckHistoryService {
     private readonly prenatalRepo: Repository<PrenatalPatient>,
     @InjectRepository(NeonatalPatient)
     private readonly neonatalRepo: Repository<NeonatalPatient>,
+    @InjectRepository(RiskAssessment)
+    private readonly riskAssessmentRepo: Repository<RiskAssessment>,
     private readonly activityLog: ActivityLogService,
     private readonly usersService: UsersService,
     private readonly alertsService: AlertsService,
@@ -97,6 +100,8 @@ export class HealthCheckHistoryService {
     if (dto.riskLevel === 'Moderate Risk' || dto.riskLevel === 'High Risk' || dto.riskLevel === 'Seek Help Immediately') {
       await this._createRiskAlert(user, dto, saved.id);
     }
+
+    await this._createRiskAssessmentRecord(user, dto, saved, submittedBy);
 
     return saved;
   }
@@ -283,6 +288,56 @@ export class HealthCheckHistoryService {
 
   private isPatient(user: User): boolean {
     return user.role === UserRole.PRENATAL || user.role === UserRole.NEONATAL;
+  }
+
+  private async _createRiskAssessmentRecord(
+    user: User,
+    dto: CreateHealthCheckHistoryDto,
+    history: HealthCheckHistory,
+    submittedBy?: User,
+  ): Promise<void> {
+    try {
+      const isPrenatal = user.role === UserRole.PRENATAL;
+      const patient = isPrenatal
+        ? await this.prenatalRepo.findOne({ where: { userId: user.id } })
+        : await this.neonatalRepo.findOne({ where: { userId: user.id } });
+
+      if (!patient) {
+        console.warn(`No patient record found for health-check risk assessment user ${user.id}`);
+        return;
+      }
+
+      const patientType = isPrenatal ? PatientType.PRENATAL : PatientType.NEONATAL;
+      const patientName = isPrenatal
+        ? (patient as PrenatalPatient).fullName
+        : ((patient as NeonatalPatient).motherName || user.fullName);
+      const patientPhone = isPrenatal
+        ? (patient as PrenatalPatient).phone
+        : ((patient as NeonatalPatient).motherPhone || user.phone || '');
+
+      const record = this.riskAssessmentRepo.create({
+        patientId: patient.id,
+        patientName: patientName || user.fullName,
+        patientPhone: patientPhone || '',
+        patientType,
+        riskLevel: dto.riskLevel as unknown as RiskLevel,
+        score: Math.round(Number(dto.score) || 0),
+        message: dto.message || 'Health check submitted',
+        answers: {
+          ...(dto.answers ?? {}),
+          healthCheckHistoryId: history.id,
+          maxScore: dto.maxScore,
+          percentage: dto.percentage,
+          symptoms: dto.symptoms ?? [],
+        },
+        submittedById: submittedBy?.id || user.id,
+      });
+
+      await this.riskAssessmentRepo.save(record);
+    } catch (error) {
+      console.error(`Failed to create risk assessment from health check: ${error.message}`);
+      // Do not block health-check completion if the clinician history mirror fails.
+    }
   }
 
   /**

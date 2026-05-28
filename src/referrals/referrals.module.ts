@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Referral } from './entities/referral.entity';
+import { HealthFacility } from '../health-facilities/entities/health-facility.entity';
 import { ReferralsService } from './referrals.service';
 import { ReferralsController } from './referrals.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -10,7 +11,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Referral]),
+    TypeOrmModule.forFeature([Referral, HealthFacility]),
     NotificationsModule,
     HealthFacilitiesModule,
     EventsModule,

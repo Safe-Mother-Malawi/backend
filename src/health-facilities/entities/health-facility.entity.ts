@@ -22,4 +22,9 @@ export class HealthFacility {
 
   @OneToMany(() => User, user => user.assignedFacility)
   clinicians: User[];
+
+  // Getter for backward compatibility
+  get name(): string {
+    return this.facilityName;
+  }
 }

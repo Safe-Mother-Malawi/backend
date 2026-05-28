@@ -16,6 +16,8 @@ export enum SocketEvent {
   EMERGENCY_ALERT     = 'emergency:alert',
   REMINDER_SENT       = 'reminder:sent',
   NOTIFICATION_RECEIVED = 'notification:received',
+  REFERRAL_CREATED    = 'referral:created',
+  REFERRAL_UPDATED    = 'referral:updated',
 }
 
 @WebSocketGateway({

@@ -54,6 +54,14 @@ export enum ActivityAction {
   REPORT_GENERATED = 'report.generated',
   REPORT_DOWNLOADED = 'report.downloaded',
   REPORT_EXPORTED = 'report.exported',
+  
+  // Referral actions
+  REFERRAL_CREATED = 'referral.created',
+  REFERRAL_ACCEPTED = 'referral.accepted',
+  REFERRAL_REJECTED = 'referral.rejected',
+  REFERRAL_UPDATED = 'referral.updated',
+  REFERRAL_COMPLETED = 'referral.completed',
+  REFERRAL_CANCELLED = 'referral.cancelled',
 }
 
 @Entity('activity_logs')

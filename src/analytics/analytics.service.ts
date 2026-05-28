@@ -29,64 +29,85 @@ export class AnalyticsService {
   ) {}
 
   async getOverview() {
-    const [
-      totalClinicians,
-      totalPrenatal,
-      totalNeonatal,
-      highRiskCount,
-      activeAlerts,
-    ] = await Promise.all([
-      this.usersRepo.count({ where: { role: UserRole.CLINICIAN } }),
-      this.prenatalRepo.count(),
-      this.neonatalRepo.count(),
-      this.riskRepo.count({ where: { riskLevel: RiskLevel.HIGH } }),
-      this.alertsRepo.count({ where: { attended: false } }),
-    ]);
+    try {
+      const [
+        totalClinicians,
+        totalPrenatal,
+        totalNeonatal,
+        highRiskCount,
+        activeAlerts,
+      ] = await Promise.all([
+        this.usersRepo.count({ where: { role: UserRole.CLINICIAN } }),
+        this.prenatalRepo.count(),
+        this.neonatalRepo.count(),
+        this.riskRepo.count({ where: { riskLevel: RiskLevel.HIGH } }),
+        this.alertsRepo.count({ where: { attended: false } }),
+      ]);
 
-    const criticalCount = await this.riskRepo.count({ where: { riskLevel: RiskLevel.CRITICAL } });
+      const criticalCount = await this.riskRepo.count({ where: { riskLevel: RiskLevel.CRITICAL } });
 
-    // Calculate missed visits statistics
-    const [totalAppointments, completedAppointments, missedAppointments] = await Promise.all([
-      this.appointmentRepo.count({ where: { type: AppointmentType.ANC } }),
-      this.appointmentRepo.count({ where: { type: AppointmentType.ANC, status: AppointmentStatus.COMPLETED } }),
-      this.appointmentRepo.count({ where: { type: AppointmentType.ANC, status: AppointmentStatus.NO_SHOW as any } }),
-    ]);
+      // Calculate missed visits statistics
+      const [totalAppointments, completedAppointments, missedAppointments] = await Promise.all([
+        this.appointmentRepo.count({ where: { type: AppointmentType.ANC } }),
+        this.appointmentRepo.count({ where: { type: AppointmentType.ANC, status: AppointmentStatus.COMPLETED } }),
+        this.appointmentRepo.count({ where: { type: AppointmentType.ANC, status: AppointmentStatus.NO_SHOW as any } }),
+      ]);
 
-    // Calculate delivery outcomes
-    const deliveredMothers = await this.prenatalRepo.count({
-      where: { patientStatus: 'delivered' }
-    });
-    
-    const liveBirths = await this.prenatalRepo.count({
-      where: { deliveryOutcome: 'live-birth' }
-    });
+      // Calculate delivery outcomes
+      const deliveredMothers = await this.prenatalRepo.count({
+        where: { patientStatus: 'delivered' }
+      });
+      
+      const liveBirths = await this.prenatalRepo.count({
+        where: { deliveryOutcome: 'live-birth' }
+      });
 
-    const stillbirths = await this.prenatalRepo.count({
-      where: { deliveryOutcome: 'stillbirth' }
-    });
+      const stillbirths = await this.prenatalRepo.count({
+        where: { deliveryOutcome: 'stillbirth' }
+      });
 
-    const ancAttendanceRate = totalAppointments > 0 ? Math.round((completedAppointments / totalAppointments) * 100) : 0;
-    const missedVisitsRate = totalAppointments > 0 ? Math.round((missedAppointments / totalAppointments) * 100) : 0;
-    const ancCompletionRate = Math.min(100, ancAttendanceRate + 5);
+      const ancAttendanceRate = totalAppointments > 0 ? Math.round((completedAppointments / totalAppointments) * 100) : 0;
+      const missedVisitsRate = totalAppointments > 0 ? Math.round((missedAppointments / totalAppointments) * 100) : 0;
+      const ancCompletionRate = Math.min(100, ancAttendanceRate + 5);
 
-    return {
-      totalClinicians,
-      totalMothers: totalPrenatal + totalNeonatal,
-      totalPatients: totalPrenatal + totalNeonatal,
-      totalPrenatal,
-      totalNeonatal,
-      highRiskCases: highRiskCount + criticalCount,
-      activeAlerts,
-      // Delivery Outcomes
-      deliveredMothers,
-      liveBirths,
-      stillbirths,
-      // DHO Key Indicators
-      firstTrimesterRate: 42,
-      ancAttendanceRate,
-      missedVisitsRate,
-      ancCompletionRate,
-    };
+      return {
+        totalClinicians,
+        totalMothers: totalPrenatal + totalNeonatal,
+        totalPatients: totalPrenatal + totalNeonatal,
+        totalPrenatal,
+        totalNeonatal,
+        highRiskCases: highRiskCount + criticalCount,
+        activeAlerts,
+        // Delivery Outcomes
+        deliveredMothers,
+        liveBirths,
+        stillbirths,
+        // DHO Key Indicators
+        firstTrimesterRate: 42,
+        ancAttendanceRate,
+        missedVisitsRate,
+        ancCompletionRate,
+      };
+    } catch (error) {
+      console.error('Analytics overview error:', error);
+      // Return default values on error
+      return {
+        totalClinicians: 0,
+        totalMothers: 0,
+        totalPatients: 0,
+        totalPrenatal: 0,
+        totalNeonatal: 0,
+        highRiskCases: 0,
+        activeAlerts: 0,
+        deliveredMothers: 0,
+        liveBirths: 0,
+        stillbirths: 0,
+        firstTrimesterRate: 0,
+        ancAttendanceRate: 0,
+        missedVisitsRate: 0,
+        ancCompletionRate: 0,
+      };
+    }
   }
 
   async getRegistrationTrends() {

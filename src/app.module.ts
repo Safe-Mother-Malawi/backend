@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -125,13 +125,22 @@ import { CorsMiddleware } from './common/middleware/cors.middleware';
   ],
 })
 export class AppModule implements NestModule {
+  private readonly logger = new Logger(AppModule.name);
+
   constructor(
     private readonly usersSeedService: UsersSeedService,
   ) {}
 
   async onModuleInit() {
-    // Seed default users on first startup
-    await this.usersSeedService.seed();
+    try {
+      this.logger.log('Starting module initialization...');
+      // Seed default users on first startup
+      await this.usersSeedService.seed();
+      this.logger.log('✅ Module initialization completed');
+    } catch (error) {
+      this.logger.error('❌ Module initialization failed:', error);
+      // Don't throw - allow app to continue even if seeding fails
+    }
   }
 
   configure(consumer: MiddlewareConsumer) {

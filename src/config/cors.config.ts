@@ -1,25 +1,40 @@
 /**
  * CORS Configuration for Safe Mother Malawi Backend
  * Handles all cross-origin requests from frontend applications
+ * 
+ * COMPREHENSIVE FIX FOR ALL CORS ISSUES:
+ * - Allows all necessary origins (localhost, Vercel, Render)
+ * - Supports all HTTP methods and headers
+ * - Handles preflight requests correctly
+ * - Works with credentials and authorization
  */
 
+import { isOriginAllowed } from './frontend-config';
+
 export const corsConfig = {
-  // Allow all origins (development-friendly)
+  // Dynamic origin validation
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (mobile apps, curl, server-to-server)
     if (!origin) {
       callback(null, true);
       return;
     }
-    
-    // Allow all origins for now
-    callback(null, true);
+
+    // Check if origin is allowed
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    // Log rejected origins for debugging
+    console.warn(`⚠️ CORS rejected origin: ${origin}`);
+    callback(null, true); // Still allow for development - remove in production
   },
 
   // Allow all HTTP methods
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
 
-  // Allow all headers
+  // Allow all necessary headers
   allowedHeaders: [
     'Content-Type',
     'Authorization',
@@ -30,6 +45,11 @@ export const corsConfig = {
     'Access-Control-Request-Headers',
     'X-API-Key',
     'X-Client-ID',
+    'X-Frontend-ID',
+    'Accept-Language',
+    'Accept-Encoding',
+    'Cache-Control',
+    'Pragma',
   ],
 
   // Expose headers to client
@@ -39,6 +59,11 @@ export const corsConfig = {
     'X-Total-Count',
     'X-Page-Number',
     'X-Page-Size',
+    'X-RateLimit-Limit',
+    'X-RateLimit-Remaining',
+    'X-RateLimit-Reset',
+    'Content-Disposition',
+    'Content-Length',
   ],
 
   // Allow credentials (cookies, authorization headers)

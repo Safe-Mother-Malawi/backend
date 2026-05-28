@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { corsConfig } from './config/cors.config';
+import { corsMiddleware, corsErrorHandler, corsValidationMiddleware, corsDebugMiddleware } from './config/cors-middleware';
 import * as express from 'express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -39,6 +40,13 @@ async function bootstrap() {
     app.use('/uploads', express.static(uploadsDir));
     logger.log('✅ Static file serving configured');
 
+    // ── COMPREHENSIVE CORS MIDDLEWARE ────────────────────────────────────────
+    // This handles all CORS scenarios and prevents future CORS issues
+    app.use(corsDebugMiddleware);        // Debug logging (if DEBUG_CORS=true)
+    app.use(corsValidationMiddleware);   // Validate CORS headers
+    app.use(corsMiddleware);             // Main CORS handler
+    logger.log('✅ Comprehensive CORS middleware configured');
+
     // ── Global validation ────────────────────────────────────────────────────
     app.useGlobalPipes(
       new ValidationPipe({
@@ -49,9 +57,10 @@ async function bootstrap() {
     );
     logger.log('✅ Global validation pipes configured');
 
-    // ── CORS Configuration ──────────────────────────────────────────────────
+    // ── CORS Configuration (NestJS built-in) ────────────────────────────────
+    // This is a backup to the middleware above
     app.enableCors(corsConfig);
-    logger.log('✅ CORS configured');
+    logger.log('✅ NestJS CORS configured (backup)');
 
     // ── Global prefix ────────────────────────────────────────────────────────
     app.setGlobalPrefix('api/v1');
@@ -60,6 +69,7 @@ async function bootstrap() {
     const port = process.env.PORT ?? 3000;
     await app.listen(port, '0.0.0.0'); // Bind to 0.0.0.0 for Render
     logger.log(`🚀 SafeMother Malawi API running on http://0.0.0.0:${port}/api/v1`);
+    logger.log(`📡 CORS enabled for: ${getAllowedOrigins().length} origins`);
   } catch (error) {
     logger.error('❌ Bootstrap failed:', error);
     process.exit(1);

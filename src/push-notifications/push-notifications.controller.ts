@@ -86,18 +86,48 @@ export class PushNotificationsController {
   }
 
   /**
-   * Send broadcast to users by role (admin only)
+   * Send broadcast to users by role
+   * Supported roles: prenatal, neonatal, mobile-users, clinician, dho, admin, all-staff
    */
   @Post('broadcast/role/:role')
+  @UseGuards(JwtAuthGuard)
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async sendBroadcastByRole(
     @CurrentUser() user: User,
-    @Param('role') role: 'patient' | 'clinician' | 'admin',
+    @Param('role') role: 'prenatal' | 'neonatal' | 'mobile-users' | 'clinician' | 'dho' | 'admin' | 'all-staff' | 'patient',
     @Body() dto: SendBroadcastDto,
   ) {
     return this.broadcastService.sendBroadcastByRole(role, dto);
+  }
+
+  /**
+   * Send broadcast to users by district
+   */
+  @Post('broadcast/district/:district')
+  @UseGuards(JwtAuthGuard)
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async sendBroadcastByDistrict(
+    @CurrentUser() user: User,
+    @Param('district') district: string,
+    @Body() dto: SendBroadcastDto,
+  ) {
+    return this.broadcastService.sendBroadcastByDistrict(district, dto);
+  }
+
+  /**
+   * Get all available districts for broadcast targeting
+   */
+  @Get('broadcast/districts/available')
+  @UseGuards(JwtAuthGuard)
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAvailableDistricts() {
+    const districts = await this.broadcastService.getAvailableDistricts();
+    return { districts };
   }
 
   /**

@@ -29,6 +29,7 @@ import { RemindersModule } from './reminders/reminders.module';
 import { HealthCheckHistoryModule } from './health-check-history/health-check-history.module';
 import { PushNotificationsModule } from './push-notifications/push-notifications.module';
 import { FirebaseModule } from './firebase/firebase.module';
+import { ReferralsModule } from './referrals/referrals.module';
 
 // ── Entities ──────────────────────────────────────────────────────────────────
 import { User } from './users/entities/user.entity';
@@ -51,6 +52,7 @@ import { HealthCheckHistory } from './health-check-history/entities/health-check
 import { DeviceToken } from './push-notifications/entities/device-token.entity';
 import { Reminder } from './reminders/entities/reminder.entity';
 import { Nationality } from './nationalities/entities/nationality.entity';
+import { Referral } from './referrals/entities/referral.entity';
 
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
@@ -86,7 +88,7 @@ import { CorsMiddleware } from './common/middleware/cors.middleware';
             User, PrenatalPatient, NeonatalPatient, NeonatalVisit,
             RiskAssessment, Appointment, Alert, Notification, BroadcastMessage,
             FeedingLog, SleepLog, Vaccine, ActivityLog, Report, HealthFacility, WhoQuestion,
-            HealthCheckHistory, DeviceToken, Reminder, Nationality,
+            HealthCheckHistory, DeviceToken, Reminder, Nationality, Referral,
             PasswordResetToken,
           ],
           synchronize: true, // Auto-create tables (set to false after first successful deployment)
@@ -117,6 +119,7 @@ import { CorsMiddleware } from './common/middleware/cors.middleware';
     RemindersModule,
     HealthCheckHistoryModule,
     FirebaseModule,
+    ReferralsModule,
   ],
   controllers: [AppController],
   providers: [

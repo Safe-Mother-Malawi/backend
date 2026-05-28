@@ -5,6 +5,7 @@ import { corsConfig } from './config/cors.config';
 import * as express from 'express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { getAllowedOrigins, isOriginAllowed } from './config/frontend-config';
 
 const logger = new Logger('Bootstrap');
 

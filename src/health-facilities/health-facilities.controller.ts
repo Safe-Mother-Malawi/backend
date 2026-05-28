@@ -42,7 +42,7 @@ export class HealthFacilitiesController {
       managingAuthority,
       search,
       page: Math.max(1, page),
-      limit: Math.min(limit, 500),
+      limit: Math.min(limit, 50000), // Increased from 500 to 50000 to show all facilities
     });
   }
 

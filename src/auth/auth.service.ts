@@ -81,6 +81,7 @@ export class AuthService {
     const tokens = await this.generateTokens(user);
     await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
 
+    // Log activity synchronously (fast)
     await this.activityLog.log({
       action: ActivityAction.USER_REGISTERED,
       actorId: user.id,
@@ -90,23 +91,26 @@ export class AuthService {
       meta: { role: user.role, district: user.district },
     });
 
-    // Notify clinicians when a patient registers (so they can follow up)
-    if (user.role === UserRole.PRENATAL || user.role === UserRole.NEONATAL) {
-      await this.notificationsService.notifyClinicians(
-        `New ${user.role === UserRole.PRENATAL ? 'Prenatal' : 'Neonatal'} Patient Registered`,
-        `${user.fullName} has registered via the mobile app in ${user.district ?? 'unknown district'}.`,
-        NotificationType.INFO,
-      ).catch(() => null);
-    }
+    // Fire-and-forget: Send notifications asynchronously without blocking registration response
+    setImmediate(() => {
+      // Notify clinicians when a patient registers (so they can follow up)
+      if (user.role === UserRole.PRENATAL || user.role === UserRole.NEONATAL) {
+        this.notificationsService.notifyClinicians(
+          `New ${user.role === UserRole.PRENATAL ? 'Prenatal' : 'Neonatal'} Patient Registered`,
+          `${user.fullName} has registered via the mobile app in ${user.district ?? 'unknown district'}.`,
+          NotificationType.INFO,
+        ).catch((err) => console.error('Failed to notify clinicians:', err));
+      }
 
-    // Notify admins when any new staff account is created
-    if (user.role === UserRole.CLINICIAN || user.role === UserRole.DHO) {
-      await this.notificationsService.notifyAdmins(
-        'New Staff Account Created',
-        `A new ${user.role} account was created for ${user.fullName}.`,
-        NotificationType.INFO,
-      ).catch(() => null);
-    }
+      // Notify admins when any new staff account is created
+      if (user.role === UserRole.CLINICIAN || user.role === UserRole.DHO) {
+        this.notificationsService.notifyAdmins(
+          'New Staff Account Created',
+          `A new ${user.role} account was created for ${user.fullName}.`,
+          NotificationType.INFO,
+        ).catch((err) => console.error('Failed to notify admins:', err));
+      }
+    });
 
     return { user: this.sanitize(user), tokens };
   }
@@ -123,12 +127,25 @@ export class AuthService {
     const tokens = await this.generateTokens(user);
     await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
 
+    // Log activity synchronously (fast)
     await this.activityLog.log({
       action: ActivityAction.USER_LOGIN,
       actorId: user.id,
       description: `${user.role} logged in: ${user.fullName}`,
       resourceType: 'user',
       resourceId: user.id,
+    });
+
+    // Fire-and-forget: Don't await notifications, send them asynchronously
+    // This prevents blocking the login response
+    setImmediate(() => {
+      this.activityLog.log({
+        action: ActivityAction.USER_LOGIN,
+        actorId: user.id,
+        description: `${user.role} logged in: ${user.fullName}`,
+        resourceType: 'user',
+        resourceId: user.id,
+      }).catch((err) => console.error('Failed to log login activity:', err));
     });
 
     return { user: this.sanitize(user), tokens };
@@ -213,20 +230,20 @@ export class AuthService {
       throw new BadRequestException('Security answer is incorrect.');
     }
 
-    // Notify admins of password reset
-    try {
-      const user = await this.usersService.findByEmailOrPhone(data.identifier);
-      if (user) {
-        await this.notificationsService.notifyAdmins(
-          'Password Reset Alert',
-          `User ${user.fullName} (${user.role}) has reset their password via security question.`,
-          NotificationType.ALERT,
-        );
-      }
-    } catch (error) {
-      // Don't fail the password reset if notification fails
-      console.error('Failed to notify admins of password reset:', error);
-    }
+    // Fire-and-forget: Notify admins asynchronously without blocking password reset response
+    setImmediate(() => {
+      this.usersService.findByEmailOrPhone(data.identifier)
+        .then((user) => {
+          if (user) {
+            return this.notificationsService.notifyAdmins(
+              'Password Reset Alert',
+              `User ${user.fullName} (${user.role}) has reset their password via security question.`,
+              NotificationType.ALERT,
+            );
+          }
+        })
+        .catch((error) => console.error('Failed to notify admins of password reset:', error));
+    });
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -293,16 +310,18 @@ export class AuthService {
 
     await this.usersService.updatePassword(userId, newPassword);
 
-    // Notify admins of password change
-    try {
-      await this.notificationsService.notifyAdmins(
-        'Password Changed',
-        `User ${user.fullName} (${user.role}) has changed their password.`,
-        NotificationType.INFO,
-      );
-    } catch (error) {
-      console.error('Failed to notify admins of password change:', error);
-    }
+    // Fire-and-forget: Notify admins asynchronously without blocking password change response
+    setImmediate(() => {
+      this.usersService.findByIdOrThrow(userId)
+        .then((user) => {
+          return this.notificationsService.notifyAdmins(
+            'Password Changed',
+            `User ${user.fullName} (${user.role}) has changed their password.`,
+            NotificationType.INFO,
+          );
+        })
+        .catch((error) => console.error('Failed to notify admins of password change:', error));
+    });
   }
 
   // ── Email-based Password Reset ────────────────────────────────────────────
@@ -387,22 +406,31 @@ export class AuthService {
     // Invalidate all active sessions for this user
     await this.usersService.invalidateAllSessions(userId);
 
-    // Send password changed notification
-    try {
-      const user = await this.usersService.findByIdOrThrow(userId);
-      if (user.email) {
-        await this.passwordResetEmailService.sendPasswordChangedEmail(user.email, user.fullName);
-      }
+    // Fire-and-forget: Send password changed notification asynchronously
+    setImmediate(() => {
+      this.usersService.findByIdOrThrow(userId)
+        .then((user) => {
+          const promises: Promise<any>[] = [];
+          
+          if (user.email) {
+            promises.push(
+              this.passwordResetEmailService.sendPasswordChangedEmail(user.email, user.fullName)
+                .catch((err) => console.error('Failed to send password changed email:', err))
+            );
+          }
 
-      // Notify admins
-      await this.notificationsService.notifyAdmins(
-        'Password Reset Alert',
-        `User ${user.fullName} (${user.role}) has reset their password via email link.`,
-        NotificationType.ALERT,
-      );
-    } catch (error) {
-      console.error('Failed to send password changed notification:', error);
-    }
+          promises.push(
+            this.notificationsService.notifyAdmins(
+              'Password Reset Alert',
+              `User ${user.fullName} (${user.role}) has reset their password via email link.`,
+              NotificationType.ALERT,
+            ).catch((err) => console.error('Failed to notify admins of password reset:', err))
+          );
+
+          return Promise.all(promises);
+        })
+        .catch((error) => console.error('Failed to send password changed notifications:', error));
+    });
   }
 
   // ── Email Service Health Check ────────────────────────────────────────────

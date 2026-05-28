@@ -56,6 +56,7 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 import { LastActiveMiddleware } from './common/middleware/last-active.middleware';
+import { CorsMiddleware } from './common/middleware/cors.middleware';
 
 @Module({
   imports: [
@@ -134,6 +135,7 @@ export class AppModule implements NestModule {
   }
 
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorsMiddleware).forRoutes('*');
     consumer.apply(LastActiveMiddleware).forRoutes('*');
   }
 }

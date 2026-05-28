@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { corsConfig } from './config/cors.config';
 import * as express from 'express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -21,8 +22,8 @@ async function bootstrap() {
 
   // ── Body parsers ─────────────────────────────────────────────────────────
   // Must be registered before global pipes.
-  app.use(require('express').urlencoded({ extended: true }));
-  app.use(require('express').json());
+  app.use(require('express').urlencoded({ extended: true, limit: '50mb' }));
+  app.use(require('express').json({ limit: '50mb' }));
 
   // ── Static file serving ──────────────────────────────────────────────────
   app.use('/uploads', require('express').static(uploadsDir));
@@ -36,17 +37,8 @@ async function bootstrap() {
     }),
   );
 
-  // ── CORS (completely open for development) ──
-  app.enableCors({
-    origin: true, // Allow all origins
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['*'], // Allow all headers
-    exposedHeaders: ['*'], // Expose all headers
-    credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 200,
-    maxAge: 86400,
-  });
+  // ── CORS Configuration ──────────────────────────────────────────────────
+  app.enableCors(corsConfig);
 
   // ── Global prefix ────────────────────────────────────────────────────────
   app.setGlobalPrefix('api/v1');

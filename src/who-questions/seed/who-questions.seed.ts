@@ -10,6 +10,8 @@ export const WHO_QUESTIONS_SEED = [
   { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you feel dizzy or have you fainted?',       weight: 2.0, severityTag: 'MEDIUM' },
   { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have swelling of the face or hands?',  weight: 2.0, severityTag: 'MEDIUM' },
   { stage: 'trimester_1', category: 'prenatal', questionText: 'Have you had previous miscarriage symptoms?',  weight: 1.5, severityTag: 'LOW' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have lower back pain?',                 weight: 1.5, severityTag: 'MEDIUM' },
+  { stage: 'trimester_1', category: 'prenatal', questionText: 'Do you have pelvic pain or cramping?',         weight: 1.5, severityTag: 'MEDIUM' },
 
   // ── TRIMESTER 2 (13–27 weeks) ─────────────────────────────────────────────
   { stage: 'trimester_2', category: 'prenatal', questionText: 'Have you noticed reduced fetal movement?',     weight: 3.0, severityTag: 'HIGH' },
@@ -22,6 +24,8 @@ export const WHO_QUESTIONS_SEED = [
   { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have a history of convulsions?',        weight: 2.5, severityTag: 'HIGH' },
   { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have shortness of breath?',             weight: 2.0, severityTag: 'MEDIUM' },
   { stage: 'trimester_2', category: 'prenatal', questionText: 'Have you had sudden weight gain?',             weight: 1.5, severityTag: 'LOW' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have leg swelling or pain?',            weight: 1.5, severityTag: 'MEDIUM' },
+  { stage: 'trimester_2', category: 'prenatal', questionText: 'Do you have persistent nausea or vomiting?',   weight: 1.5, severityTag: 'MEDIUM' },
 
   // ── TRIMESTER 3 (28+ weeks) ───────────────────────────────────────────────
   { stage: 'trimester_3', category: 'prenatal', questionText: 'Have you noticed reduced or no fetal movement?', weight: 3.5, severityTag: 'HIGH' },
@@ -34,6 +38,8 @@ export const WHO_QUESTIONS_SEED = [
   { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have high blood pressure symptoms?',    weight: 3.0, severityTag: 'HIGH' },
   { stage: 'trimester_3', category: 'prenatal', questionText: 'Has your water broken early?',                 weight: 3.0, severityTag: 'HIGH' },
   { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have a fever?',                         weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have persistent lower back pain?',      weight: 1.5, severityTag: 'MEDIUM' },
+  { stage: 'trimester_3', category: 'prenatal', questionText: 'Do you have leg swelling or calf pain?',       weight: 1.5, severityTag: 'MEDIUM' },
 
   // ── EARLY NEONATAL (0–7 days) ─────────────────────────────────────────────
   { stage: 'early_neonatal', category: 'neonatal', questionText: 'Is your baby feeding poorly or refusing to feed?', weight: 3.0, severityTag: 'HIGH' },
@@ -46,6 +52,8 @@ export const WHO_QUESTIONS_SEED = [
   { stage: 'early_neonatal', category: 'neonatal', questionText: 'Does the umbilical cord look infected (red/pus)?', weight: 2.5, severityTag: 'HIGH' },
   { stage: 'early_neonatal', category: 'neonatal', questionText: 'Is your baby vomiting everything?',                weight: 2.5, severityTag: 'HIGH' },
   { stage: 'early_neonatal', category: 'neonatal', questionText: 'Did your baby not cry at birth?',                  weight: 3.0, severityTag: 'HIGH' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Does your baby have skin rashes or pustules?',     weight: 1.5, severityTag: 'MEDIUM' },
+  { stage: 'early_neonatal', category: 'neonatal', questionText: 'Is your baby having difficulty with feeding?',     weight: 2.0, severityTag: 'MEDIUM' },
 
   // ── LATE NEONATAL (8–28 days) ─────────────────────────────────────────────
   { stage: 'late_neonatal', category: 'neonatal', questionText: 'Is your baby feeding poorly?',                      weight: 3.0, severityTag: 'HIGH' },
@@ -58,4 +66,6 @@ export const WHO_QUESTIONS_SEED = [
   { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have skin infections or rashes?',    weight: 2.0, severityTag: 'MEDIUM' },
   { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have eye discharge?',                weight: 1.5, severityTag: 'LOW' },
   { stage: 'late_neonatal', category: 'neonatal', questionText: 'Is your baby failing to gain weight?',              weight: 2.0, severityTag: 'MEDIUM' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have excessive crying?',             weight: 1.5, severityTag: 'MEDIUM' },
+  { stage: 'late_neonatal', category: 'neonatal', questionText: 'Does your baby have constipation or hard stools?',  weight: 1.5, severityTag: 'MEDIUM' },
 ];

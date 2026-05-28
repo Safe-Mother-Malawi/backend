@@ -54,6 +54,7 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
     answeredQuestions: { question: string; answer: string; weight: number; contributed: number }[];
     criticalSymptoms?: string[]; // New: List of critical symptoms detected
+    mediumRiskSymptoms?: string[]; // New: List of medium-risk symptoms detected
     riskOverride?: string; // New: Reason for risk override
   }> {
     const questions = await this.getByStage(stage);
@@ -63,6 +64,7 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
     const maxScore = questions.reduce((s, q) => s + q.weight, 0);
     const answeredQuestions: { question: string; answer: string; weight: number; contributed: number }[] = [];
     const criticalSymptoms: string[] = [];
+    const mediumRiskSymptoms: string[] = [];
 
     for (const ans of answers) {
       const q = qMap.get(ans.questionId);
@@ -76,9 +78,13 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
         contributed,
       });
 
-      // 🚨 RULE-BASED LOGIC: Check for critical symptoms
-      if (ans.value === 1 && q.severityTag === 'HIGH') {
-        criticalSymptoms.push(q.questionText);
+      // 🚨 RULE-BASED LOGIC: Check for critical and medium-risk symptoms
+      if (ans.value === 1) {
+        if (q.severityTag === 'HIGH') {
+          criticalSymptoms.push(q.questionText);
+        } else if (q.severityTag === 'MEDIUM') {
+          mediumRiskSymptoms.push(q.questionText);
+        }
       }
     }
 
@@ -98,6 +104,11 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
       finalRiskLevel = 'HIGH';
       riskOverride = `Critical symptom detected: ${criticalSymptoms.join(', ')}`;
     }
+    // 🟡 MEDIUM RISK RULE: 2+ MEDIUM severity symptoms = MEDIUM RISK (unless already HIGH)
+    else if (mediumRiskSymptoms.length >= 2 && finalRiskLevel === 'LOW') {
+      finalRiskLevel = 'MEDIUM';
+      riskOverride = `Multiple concerning symptoms detected: ${mediumRiskSymptoms.join(', ')}`;
+    }
 
     return { 
       score, 
@@ -106,6 +117,7 @@ export class WhoQuestionsService implements OnApplicationBootstrap {
       riskLevel: finalRiskLevel, 
       answeredQuestions,
       criticalSymptoms: criticalSymptoms.length > 0 ? criticalSymptoms : undefined,
+      mediumRiskSymptoms: mediumRiskSymptoms.length > 0 ? mediumRiskSymptoms : undefined,
       riskOverride
     };
   }

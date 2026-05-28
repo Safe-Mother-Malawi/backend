@@ -64,7 +64,7 @@ import { CorsMiddleware } from './common/middleware/cors.middleware';
 
     ThrottlerModule.forRoot([{
       ttl: 60000,
-      limit: 5000, // Increased to 5000 requests per minute for better concurrency
+      limit: 50000, // Increased to 50000 requests per minute for high concurrency
     }]),
 
     ScheduleModule.forRoot(),

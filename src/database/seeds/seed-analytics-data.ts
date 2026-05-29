@@ -87,7 +87,7 @@ export async function seedAnalyticsData(dataSource: DataSource) {
       prenatalPatients.push({
         fullName: `${firstName} ${lastName}`,
         age: 18 + (i % 30),
-        phoneNumber: `+265${Math.floor(Math.random() * 900000000) + 100000000}`,
+        phone: `+265${Math.floor(Math.random() * 900000000) + 100000000}`,
         district,
         facility,
         clinician,
@@ -175,7 +175,7 @@ export async function seedAnalyticsData(dataSource: DataSource) {
       alerts.push({
         patientName: allPatients[i % allPatients.length].fullName,
         patientStatus: 'high-risk',
-        contact: allPatients[i % allPatients.length].phoneNumber || '+265999999999',
+        contact: allPatients[i % allPatients.length].phone || '+265999999999',
         reason: 'High-risk pregnancy requiring immediate attention',
         severity: AlertSeverity.HIGH,
         createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),

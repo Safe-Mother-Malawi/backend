@@ -70,40 +70,46 @@ export async function seedAnalyticsData(dataSource: DataSource) {
       },
     ]);
 
-    // 3. Create Prenatal Patients (450 total across districts)
+    // 3. Create Prenatal Patients (1420 total across districts)
     const prenatalPatients: PrenatalPatient[] = [];
     const districts = ['Lilongwe', 'Blantyre', 'Mzuzu', 'Zomba'];
     const riskLevels = [RiskLevel.LOW, RiskLevel.MODERATE, RiskLevel.HIGH, RiskLevel.CRITICAL];
+    const firstNames = ['Sarah', 'Mary', 'Jane', 'Grace', 'Rose', 'Lucy', 'Alice', 'Betty', 'Carol', 'Diana'];
+    const lastNames = ['Banda', 'Mwale', 'Phiri', 'Nkomo', 'Chikwanda', 'Mbewe', 'Kamwendo', 'Nyirenda', 'Gondwe', 'Mwanza'];
 
-    for (let i = 0; i < 450; i++) {
+    for (let i = 0; i < 1420; i++) {
       const district = districts[i % districts.length];
       const facility = facilities.find(f => f.district === district);
       const clinician = clinicians[i % clinicians.length];
+      const firstName = firstNames[i % firstNames.length];
+      const lastName = lastNames[Math.floor(i / firstNames.length) % lastNames.length];
 
       prenatalPatients.push({
-        fullName: `Patient ${i + 1}`,
+        fullName: `${firstName} ${lastName}`,
         age: 18 + (i % 30),
-        phoneNumber: `+265${Math.random().toString().slice(2, 11)}`,
+        phoneNumber: `+265${Math.floor(Math.random() * 900000000) + 100000000}`,
         district,
         facility,
         clinician,
         gestationalAge: 8 + (i % 32),
-        patientStatus: i % 10 === 0 ? 'delivered' : 'active',
-        deliveryOutcome: i % 10 === 0 ? (i % 2 === 0 ? 'live-birth' : 'stillbirth') : null,
+        patientStatus: i % 15 === 0 ? 'delivered' : 'active',
+        deliveryOutcome: i % 15 === 0 ? (i % 2 === 0 ? 'live-birth' : 'stillbirth') : null,
         createdAt: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000),
       } as any);
     }
     await queryRunner.manager.save(PrenatalPatient, prenatalPatients);
 
-    // 4. Create Neonatal Patients (380 total)
+    // 4. Create Neonatal Patients (850 total)
     const neonatalPatients: NeonatalPatient[] = [];
-    for (let i = 0; i < 380; i++) {
+    for (let i = 0; i < 850; i++) {
       const district = districts[i % districts.length];
       const facility = facilities.find(f => f.district === district);
       const clinician = clinicians[i % clinicians.length];
+      const firstName = firstNames[i % firstNames.length];
+      const lastName = lastNames[Math.floor(i / firstNames.length) % lastNames.length];
 
       neonatalPatients.push({
-        fullName: `Neonate ${i + 1}`,
+        fullName: `Baby ${firstName} ${lastName}`,
         dateOfBirth: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
         weight: 2.5 + Math.random() * 1.5,
         district,
@@ -114,22 +120,22 @@ export async function seedAnalyticsData(dataSource: DataSource) {
     }
     await queryRunner.manager.save(NeonatalPatient, neonatalPatients);
 
-    // 5. Create Risk Assessments (156 high-risk, 342 moderate, 922 low)
+    // 5. Create Risk Assessments (350 high-risk, 650 moderate, 1420 low)
     const riskAssessments: RiskAssessment[] = [];
     const allPatients = [...prenatalPatients];
 
-    // High risk (156)
-    for (let i = 0; i < 156; i++) {
+    // High risk (350)
+    for (let i = 0; i < 350; i++) {
       riskAssessments.push({
-        patient: allPatients[i],
+        patient: allPatients[i % allPatients.length],
         riskLevel: RiskLevel.HIGH,
         factors: ['Hypertension', 'Diabetes', 'Previous complications'],
         assessmentDate: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
       } as any);
     }
 
-    // Moderate risk (342)
-    for (let i = 156; i < 498; i++) {
+    // Moderate risk (650)
+    for (let i = 350; i < 1000; i++) {
       riskAssessments.push({
         patient: allPatients[i % allPatients.length],
         riskLevel: RiskLevel.MODERATE,
@@ -138,8 +144,8 @@ export async function seedAnalyticsData(dataSource: DataSource) {
       } as any);
     }
 
-    // Low risk (922)
-    for (let i = 498; i < 1420; i++) {
+    // Low risk (1420)
+    for (let i = 1000; i < 2420; i++) {
       riskAssessments.push({
         patient: allPatients[i % allPatients.length],
         riskLevel: RiskLevel.LOW,
@@ -149,10 +155,10 @@ export async function seedAnalyticsData(dataSource: DataSource) {
     }
     await queryRunner.manager.save(RiskAssessment, riskAssessments);
 
-    // 6. Create Appointments (1250 total, 1087 completed, 163 missed)
+    // 6. Create Appointments (2500 total, 2150 completed, 350 missed)
     const appointments: Appointment[] = [];
-    for (let i = 0; i < 1250; i++) {
-      const isCompleted = i < 1087;
+    for (let i = 0; i < 2500; i++) {
+      const isCompleted = i < 2150;
       appointments.push({
         patient: allPatients[i % allPatients.length],
         type: AppointmentType.ANC,
@@ -163,11 +169,11 @@ export async function seedAnalyticsData(dataSource: DataSource) {
     }
     await queryRunner.manager.save(Appointment, appointments);
 
-    // 7. Create Alerts (active alerts for high-risk cases)
+    // 7. Create Alerts (150 active alerts for high-risk cases)
     const alerts: Alert[] = [];
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 150; i++) {
       alerts.push({
-        patient: allPatients[i],
+        patient: allPatients[i % allPatients.length],
         type: AlertType.HIGH_RISK,
         severity: AlertSeverity.HIGH,
         message: `High-risk pregnancy requiring immediate attention`,

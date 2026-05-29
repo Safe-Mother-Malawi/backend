@@ -69,7 +69,7 @@ async function bootstrap() {
     // ── Seed analytics data ──────────────────────────────────────────────────
     if (process.env.SEED_DATA === 'true') {
       try {
-        const { seedAnalyticsData } = await import('./database/seeds/seed-analytics-data');
+        const { seedAnalyticsData } = await import('./database/seeds/seed-analytics-data.js');
         const dataSource = app.get('DataSource');
         if (dataSource) {
           await seedAnalyticsData(dataSource);

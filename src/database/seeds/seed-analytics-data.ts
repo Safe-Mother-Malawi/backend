@@ -5,7 +5,7 @@ import { PrenatalPatient } from '../../patients/entities/prenatal-patient.entity
 import { NeonatalPatient } from '../../patients/entities/neonatal-patient.entity';
 import { RiskAssessment, RiskLevel } from '../../risk-assessments/entities/risk-assessment.entity';
 import { Appointment, AppointmentType, AppointmentStatus } from '../../appointments/entities/appointment.entity';
-import { Alert, AlertType, AlertSeverity } from '../../alerts/entities/alert.entity';
+import { Alert, AlertSeverity } from '../../alerts/entities/alert.entity';
 
 /**
  * Seed data for analytics dashboards
@@ -44,31 +44,31 @@ export async function seedAnalyticsData(dataSource: DataSource) {
         email: 'clinician1@example.com',
         fullName: 'Dr. Sarah Banda',
         role: UserRole.CLINICIAN,
-        facility: facilities[0],
+        facilityId: facilities[0].id,
         isActive: true,
       },
       {
         email: 'clinician2@example.com',
         fullName: 'Dr. James Mwale',
         role: UserRole.CLINICIAN,
-        facility: facilities[1],
+        facilityId: facilities[1].id,
         isActive: true,
       },
       {
         email: 'clinician3@example.com',
         fullName: 'Nurse Mary Phiri',
         role: UserRole.CLINICIAN,
-        facility: facilities[2],
+        facilityId: facilities[2].id,
         isActive: true,
       },
       {
         email: 'clinician4@example.com',
         fullName: 'Dr. Peter Nkomo',
         role: UserRole.CLINICIAN,
-        facility: facilities[3],
+        facilityId: facilities[3].id,
         isActive: true,
       },
-    ]);
+    ] as any);
 
     // 3. Create Prenatal Patients (1420 total across districts)
     const prenatalPatients: PrenatalPatient[] = [];
@@ -173,11 +173,11 @@ export async function seedAnalyticsData(dataSource: DataSource) {
     const alerts: Alert[] = [];
     for (let i = 0; i < 150; i++) {
       alerts.push({
-        patient: allPatients[i % allPatients.length],
-        type: AlertType.HIGH_RISK,
+        patientName: allPatients[i % allPatients.length].fullName,
+        patientStatus: 'high-risk',
+        contact: allPatients[i % allPatients.length].phoneNumber || '+265999999999',
+        reason: 'High-risk pregnancy requiring immediate attention',
         severity: AlertSeverity.HIGH,
-        message: `High-risk pregnancy requiring immediate attention`,
-        attended: false,
         createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
       } as any);
     }

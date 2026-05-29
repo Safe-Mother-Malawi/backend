@@ -66,6 +66,19 @@ async function bootstrap() {
     app.setGlobalPrefix('api/v1');
     logger.log('✅ Global prefix set to /api/v1');
 
+    // ── Seed analytics data ──────────────────────────────────────────────────
+    if (process.env.SEED_DATA === 'true') {
+      try {
+        const { seedAnalyticsData } = await import('./database/seeds/seed-analytics-data');
+        const dataSource = app.get('DataSource');
+        if (dataSource) {
+          await seedAnalyticsData(dataSource);
+        }
+      } catch (error) {
+        logger.warn('⚠️ Seeding skipped or failed (non-critical):', error.message);
+      }
+    }
+
     const port = process.env.PORT ?? 3000;
     await app.listen(port, '0.0.0.0'); // Bind to 0.0.0.0 for Render
     logger.log(`🚀 SafeMother Malawi API running on http://0.0.0.0:${port}/api/v1`);
